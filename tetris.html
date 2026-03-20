@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tetris Mobile</title>
+    <title>俄罗斯方块</title>
     <style>
         body {
             margin: 0;
@@ -11,7 +11,7 @@
             background-color: #1a1a2e;
             color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none; /* Prevent zooming and scrolling */
+            touch-action: none;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -68,10 +68,25 @@
             height: 80px;
         }
 
+        .action-btn {
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 5px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .action-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+        }
+
         #controls {
             height: 180px;
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
             grid-template-rows: 1fr 1fr;
             gap: 10px;
             padding: 15px;
@@ -103,14 +118,15 @@
         }
 
         #btn-left { grid-column: 1; grid-row: 1 / span 2; }
-        #btn-right { grid-column: 3; grid-row: 1 / span 2; }
-        #btn-rotate { grid-column: 2; grid-row: 1; }
-        #btn-down { grid-column: 2; grid-row: 2; }
+        #btn-right { grid-column: 4; grid-row: 1 / span 2; }
+        #btn-rotate { grid-column: 2 / span 2; grid-row: 1; }
+        #btn-down { grid-column: 2; grid-row: 2; font-size: 20px;}
+        #btn-hard { grid-column: 3; grid-row: 2; font-size: 20px;}
 
-        #overlay {
+        .overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -118,13 +134,13 @@
             z-index: 10;
         }
 
-        #overlay h1 {
+        .overlay h1 {
             color: #e94560;
             margin-bottom: 20px;
             font-size: 36px;
         }
 
-        #overlay button {
+        .overlay button {
             padding: 15px 30px;
             font-size: 20px;
             background-color: #e94560;
@@ -132,6 +148,8 @@
             border: none;
             border-radius: 8px;
             font-weight: bold;
+            margin: 10px;
+            min-width: 160px;
         }
     </style>
 </head>
@@ -141,22 +159,35 @@
         <canvas id="board"></canvas>
         <div id="ui-panel">
             <canvas id="next-canvas"></canvas>
-            <div class="info-box">Score <span id="score">0</span></div>
-            <div class="info-box">Level <span id="level">1</span></div>
-            <div class="info-box">Lines <span id="lines">0</span></div>
+            <div class="info-box">分数 <span id="score">0</span></div>
+            <div class="info-box">等级 <span id="level">1</span></div>
+            <div class="info-box">行数 <span id="lines">0</span></div>
+            <button class="action-btn" id="pause-btn">⏸ 暂停</button>
         </div>
     </div>
 
     <div id="controls">
         <div class="btn" id="btn-left">◀</div>
-        <div class="btn" id="btn-rotate">↻</div>
-        <div class="btn" id="btn-down">▼</div>
+        <div class="btn" id="btn-rotate">↻ 旋转</div>
+        <div class="btn" id="btn-down">▼ 下落</div>
+        <div class="btn" id="btn-hard">⏬ 坠落</div>
         <div class="btn" id="btn-right">▶</div>
     </div>
 
-    <div id="overlay">
-        <h1>TETRIS</h1>
-        <button id="start-btn">START GAME</button>
+    <div id="overlay-start" class="overlay">
+        <h1>俄罗斯方块</h1>
+        <button id="start-btn">开始游戏</button>
+    </div>
+
+    <div id="overlay-pause" class="overlay" style="display: none;">
+        <h1>游戏暂停</h1>
+        <button id="resume-btn">继续游戏</button>
+        <button id="restart-btn">重新开始</button>
+    </div>
+
+    <div id="overlay-gameover" class="overlay" style="display: none;">
+        <h1>游戏结束</h1>
+        <button id="retry-btn">再来一局</button>
     </div>
 
     <script>
@@ -165,39 +196,41 @@
         const nextCanvas = document.getElementById('next-canvas');
         const nextCtx = nextCanvas.getContext('2d');
 
-        const COLS = 10;
+        const COLS = 11; // 增加一列
         const ROWS = 20;
-        let BLOCK_SIZE = 20; // Will be calculated dynamically
+        let BLOCK_SIZE = 20;
 
-        // UI Elements
+        // UI 元素
         const scoreEl = document.getElementById('score');
         const levelEl = document.getElementById('level');
         const linesEl = document.getElementById('lines');
-        const overlay = document.getElementById('overlay');
-        const startBtn = document.getElementById('start-btn');
+        
+        const overlayStart = document.getElementById('overlay-start');
+        const overlayPause = document.getElementById('overlay-pause');
+        const overlayGameover = document.getElementById('overlay-gameover');
 
-        // Colors
+        // 颜色配置
         const COLORS = [
             null,
-            '#00FFFF', // I - Cyan
-            '#0000FF', // J - Blue
-            '#FFA500', // L - Orange
-            '#FFFF00', // O - Yellow
-            '#00FF00', // S - Green
-            '#800080', // T - Purple
-            '#FF0000'  // Z - Red
+            '#00FFFF', // I
+            '#0000FF', // J
+            '#FFA500', // L
+            '#FFFF00', // O
+            '#00FF00', // S
+            '#800080', // T
+            '#FF0000'  // Z
         ];
 
-        // Tetromino shapes
+        // 方块形状
         const SHAPES = [
             [],
-            [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], // I
-            [[2, 0, 0], [2, 2, 2], [0, 0, 0]], // J
-            [[0, 0, 3], [3, 3, 3], [0, 0, 0]], // L
-            [[4, 4], [4, 4]], // O
-            [[0, 5, 5], [5, 5, 0], [0, 0, 0]], // S
-            [[0, 6, 0], [6, 6, 6], [0, 0, 0]], // T
-            [[7, 7, 0], [0, 7, 7], [0, 0, 0]]  // Z
+            [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], 
+            [[2, 0, 0], [2, 2, 2], [0, 0, 0]], 
+            [[0, 0, 3], [3, 3, 3], [0, 0, 0]], 
+            [[4, 4], [4, 4]], 
+            [[0, 5, 5], [5, 5, 0], [0, 0, 0]], 
+            [[0, 6, 0], [6, 6, 6], [0, 0, 0]], 
+            [[7, 7, 0], [0, 7, 7], [0, 0, 0]]  
         ];
 
         let board = [];
@@ -211,12 +244,13 @@
         let lastTime = 0;
         let reqAnimId = null;
         let gameOver = false;
+        let isPaused = false;
 
-        // Resize Canvas dynamically
+        // 动态调整画布大小
         function resize() {
             const gameArea = document.getElementById('game-area');
             const maxH = gameArea.clientHeight - 20;
-            const maxW = gameArea.clientWidth - 110; // Minus sidebar and gap
+            const maxW = gameArea.clientWidth - 110; 
             
             BLOCK_SIZE = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
             canvas.width = BLOCK_SIZE * COLS;
@@ -228,7 +262,7 @@
         }
         window.addEventListener('resize', resize);
 
-        // Matrix Operations
+        // 矩阵操作
         function createMatrix(w, h) {
             const matrix = [];
             while (h--) matrix.push(new Array(w).fill(0));
@@ -258,12 +292,13 @@
             return false;
         }
 
-        // Game Actions
+        // 游戏操作
         function randomPiece() {
             const typeId = Math.floor(Math.random() * 7) + 1;
+            const matrix = SHAPES[typeId];
             return {
-                matrix: SHAPES[typeId],
-                pos: { x: Math.floor(COLS / 2) - Math.floor(SHAPES[typeId].length / 2), y: 0 }
+                matrix: matrix,
+                pos: { x: Math.floor(COLS / 2) - Math.floor(matrix.length / 2), y: 0 }
             };
         }
 
@@ -296,14 +331,20 @@
                 score += points[linesCleared] * level;
                 scoreEl.innerText = score;
                 
-                // Update Level
+                // 升级逻辑
                 level = Math.floor(lines / 10) + 1;
                 levelEl.innerText = level;
                 dropInterval = Math.max(100, 1000 - (level - 1) * 100);
             }
         }
 
+        function triggerGameOver() {
+            gameOver = true;
+            overlayGameover.style.display = 'flex';
+        }
+
         function playerDrop() {
+            if (isPaused || gameOver) return;
             piece.pos.y++;
             if (checkCollision(piece.matrix, piece.pos)) {
                 piece.pos.y--;
@@ -313,15 +354,24 @@
                 nextPiece = randomPiece();
                 drawNext();
                 if (checkCollision(piece.matrix, piece.pos)) {
-                    gameOver = true;
-                    overlay.style.display = 'flex';
-                    overlay.querySelector('h1').innerText = 'GAME OVER';
+                    triggerGameOver();
                 }
             }
             dropCounter = 0;
         }
 
+        function playerHardDrop() {
+            if (isPaused || gameOver) return;
+            while (!checkCollision(piece.matrix, {x: piece.pos.x, y: piece.pos.y + 1})) {
+                piece.pos.y++;
+                score += 2; // 硬降得分奖励
+            }
+            scoreEl.innerText = score;
+            playerDrop(); // 触发合并和消行
+        }
+
         function playerMove(dir) {
+            if (isPaused || gameOver) return;
             piece.pos.x += dir;
             if (checkCollision(piece.matrix, piece.pos)) {
                 piece.pos.x -= dir;
@@ -329,22 +379,22 @@
         }
 
         function playerRotate() {
+            if (isPaused || gameOver) return;
             const rotated = rotateMatrix(piece.matrix);
             const pos = piece.pos.x;
             let offset = 1;
-            // Wall kick logic
             while (checkCollision(rotated, piece.pos)) {
                 piece.pos.x += offset;
                 offset = -(offset + (offset > 0 ? 1 : -1));
                 if (offset > piece.matrix[0].length) {
-                    piece.pos.x = pos; // Reset
+                    piece.pos.x = pos; // 恢复
                     return;
                 }
             }
             piece.matrix = rotated;
         }
 
-        // Rendering
+        // 绘制
         function drawMatrix(matrix, offset, context = ctx, blockSize = BLOCK_SIZE) {
             matrix.forEach((row, y) => {
                 row.forEach((value, x) => {
@@ -354,7 +404,7 @@
                         context.strokeStyle = '#000';
                         context.strokeRect((x + offset.x) * blockSize, (y + offset.y) * blockSize, blockSize, blockSize);
                         
-                        // Inner highlight for 3D effect
+                        // 3D 高光效果
                         context.fillStyle = 'rgba(255,255,255,0.2)';
                         context.fillRect((x + offset.x) * blockSize + 2, (y + offset.y) * blockSize + 2, blockSize - 4, blockSize / 3);
                     }
@@ -388,13 +438,11 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawGrid();
             drawMatrix(board, {x: 0, y: 0});
-            if (piece) {
-                drawMatrix(piece.matrix, piece.pos);
-            }
+            if (piece) drawMatrix(piece.matrix, piece.pos);
         }
 
         function update(time = 0) {
-            if (gameOver) return;
+            if (gameOver || isPaused) return;
             const deltaTime = time - lastTime;
             lastTime = time;
             dropCounter += deltaTime;
@@ -407,6 +455,7 @@
             reqAnimId = requestAnimationFrame(update);
         }
 
+        // 状态控制
         function resetGame() {
             board = createMatrix(COLS, ROWS);
             score = 0;
@@ -419,15 +468,35 @@
             piece = randomPiece();
             nextPiece = randomPiece();
             drawNext();
+            
             gameOver = false;
+            isPaused = false;
             dropCounter = 0;
             lastTime = performance.now();
-            overlay.style.display = 'none';
+            
+            overlayStart.style.display = 'none';
+            overlayPause.style.display = 'none';
+            overlayGameover.style.display = 'none';
+            
             if (reqAnimId) cancelAnimationFrame(reqAnimId);
             update();
         }
 
-        // Controls binding
+        function togglePause() {
+            if (gameOver || overlayStart.style.display !== 'none') return;
+            isPaused = true;
+            overlayPause.style.display = 'flex';
+            if (reqAnimId) cancelAnimationFrame(reqAnimId);
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            overlayPause.style.display = 'none';
+            lastTime = performance.now();
+            update();
+        }
+
+        // 绑定按钮事件
         const bindBtn = (id, action, continuous = false) => {
             const btn = document.getElementById(id);
             let timer = null;
@@ -435,7 +504,7 @@
 
             const trigger = (e) => {
                 if (e) e.preventDefault();
-                if (gameOver) return;
+                if (gameOver || isPaused) return;
                 action();
                 btn.classList.add('active');
             };
@@ -450,37 +519,44 @@
             btn.addEventListener('touchstart', (e) => {
                 trigger(e);
                 if (continuous) {
-                    timer = setTimeout(() => {
-                        intTimer = setInterval(action, 80);
-                    }, 200);
+                    timer = setTimeout(() => { intTimer = setInterval(action, 80); }, 200);
                 }
             }, {passive: false});
 
             btn.addEventListener('touchend', release);
             btn.addEventListener('touchcancel', release);
             
-            // For mouse testing on desktop
             btn.addEventListener('mousedown', (e) => {
                 trigger(e);
                 if (continuous) {
-                    timer = setTimeout(() => {
-                        intTimer = setInterval(action, 80);
-                    }, 200);
+                    timer = setTimeout(() => { intTimer = setInterval(action, 80); }, 200);
                 }
             });
             btn.addEventListener('mouseup', release);
             btn.addEventListener('mouseleave', release);
         };
 
+        // 操作绑定
         bindBtn('btn-left', () => playerMove(-1), true);
         bindBtn('btn-right', () => playerMove(1), true);
         bindBtn('btn-down', () => playerDrop(), true);
         bindBtn('btn-rotate', () => playerRotate(), false);
+        bindBtn('btn-hard', () => playerHardDrop(), false);
 
-        startBtn.addEventListener('click', resetGame);
-        startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); resetGame(); });
+        // 界面按钮绑定
+        const bindClick = (id, fn) => {
+            const el = document.getElementById(id);
+            el.addEventListener('click', fn);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); fn(); });
+        };
 
-        // Init
+        bindClick('start-btn', resetGame);
+        bindClick('retry-btn', resetGame);
+        bindClick('pause-btn', togglePause);
+        bindClick('resume-btn', resumeGame);
+        bindClick('restart-btn', resetGame);
+
+        // 初始化
         resize();
     </script>
 </body>
