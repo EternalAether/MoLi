@@ -1,2 +1,0 @@
-# MoLi
-My test code
