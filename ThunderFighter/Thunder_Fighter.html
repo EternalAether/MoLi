@@ -8,26 +8,35 @@
 </head>
 <body>
 
-<div class="hud" id="hud">
+<!-- 主菜单 -->
+<div id="mainMenu" style="display: flex;">
+    <h1>雷霆战机<br><span style="font-size: 20px; color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue);">CYBERPUNK</span></h1>
+    <button class="btn menu-btn" id="startBtn">开始游戏</button>
+</div>
+
+<!-- 游戏内HUD (初始隐藏) -->
+<div class="hud" id="hud" style="display: none;">
     <div>分数: <span id="scoreVal">0</span></div>
     <div>难度等级: <span id="levelVal">1</span></div>
     <div>生命值: <span id="hpVal">100</span>%</div>
     <div style="color:var(--neon-yellow); margin-top:5px;">火力等级: <span id="powerVal">1</span></div>
 </div>
 
-<button class="btn" id="pauseBtn">暂停</button>
+<button class="btn" id="pauseBtn" style="display: none;">暂停</button>
 <button class="btn" id="muteBtn">音效: 开</button>
 
 <div id="pauseMenu">
     <h1>游戏暂停</h1>
     <button class="btn menu-btn" id="resumeBtn">继续游戏</button>
     <button class="btn menu-btn" id="restartBtnPause">重新开始</button>
+    <button class="btn menu-btn" id="menuBtnPause">返回菜单</button>
 </div>
 
 <div id="gameOverMenu">
     <h1>连接中断</h1>
     <div style="font-size:24px; margin-bottom:20px; color:var(--neon-blue);">最终分数: <span id="finalScore">0</span></div>
     <button class="btn menu-btn" id="restartBtn">重新启动</button>
+    <button class="btn menu-btn" id="menuBtnOver">返回菜单</button>
 </div>
 
 <div id="warningScreen">警告！高能反应接近！</div>
