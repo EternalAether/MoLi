@@ -983,15 +983,22 @@ function gameLoop(now) {
     
     // 渲染低血量屏幕边缘红光闪烁
     if (player.hp <= 30 && player.hp > 0) {
-        let pulseAlpha = 0.2 + Math.sin(now / 150) * 0.15; // 呼吸闪烁效果
-        ctx.save();
-        ctx.lineWidth = 30;
-        ctx.strokeStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
-        ctx.shadowBlur = 40;
-        ctx.shadowColor = '#f00';
-        ctx.strokeRect(15, 15, W - 30, H - 30);
-        ctx.restore();
-    }
+    let pulseAlpha = 0.2 + Math.sin(now / 150) * 0.15;
+    ctx.save();
+    // 阴影模糊半径（数值越大光晕越扩散）
+    ctx.shadowBlur = 50;
+    ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
+    // 矩形填充色（半透明红，呼吸效果）
+    ctx.fillStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
+
+    const edgeWidth = 25;   // 边缘宽度（想要“减小红光边缘”就调小这个值，例如 15~30）
+    // 左边缘
+    ctx.fillRect(0, edgeWidth, edgeWidth, H - 2 * edgeWidth);
+    // 右边缘
+    ctx.fillRect(W - edgeWidth, edgeWidth, edgeWidth, H - 2 * edgeWidth);
+
+    ctx.restore();
+}
     
     updateHUD();
 }
