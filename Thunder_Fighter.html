@@ -3,27 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Striker - WebGL/Canvas Procedural Shooter</title>
+    <title>雷霆战机 - 霓虹科幻版</title>
     <style>
         :root {
             --neon-blue: #00f3ff;
             --neon-pink: #ff00ff;
             --neon-yellow: #fffb00;
+            --neon-red: #ff3333;
             --bg-color: #050510;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
         body, html { width: 100%; height: 100%; background-color: var(--bg-color); overflow: hidden; font-family: 'Courier New', Courier, monospace; color: white; }
         canvas { display: block; width: 100%; height: 100%; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
-        .hud-top { display: flex; justify-content: space-between; text-shadow: 0 0 5px var(--neon-blue); font-size: 1.2rem; font-weight: bold; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; z-index: 5; }
+        .hud-top { display: flex; justify-content: space-between; align-items: flex-start; text-shadow: 0 0 5px var(--neon-blue); font-size: 1.2rem; font-weight: bold; }
         .score { color: var(--neon-blue); }
         .hp { color: var(--neon-pink); }
-        #controls { pointer-events: auto; display: flex; justify-content: flex-end; }
-        .btn { background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 10px 15px; font-family: inherit; font-size: 1rem; cursor: pointer; border-radius: 5px; text-shadow: 0 0 5px var(--neon-blue); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3) inset, 0 0 10px rgba(0, 243, 255, 0.3); outline: none; transition: 0.2s; }
+        
+        #controls { pointer-events: auto; display: flex; justify-content: space-between; }
+        .btn { background: rgba(5,5,16,0.5); border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 10px 15px; font-family: inherit; font-size: 1rem; cursor: pointer; border-radius: 5px; text-shadow: 0 0 5px var(--neon-blue); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3) inset; outline: none; transition: 0.2s; pointer-events: auto; backdrop-filter: blur(2px); }
         .btn:active { background: var(--neon-blue); color: #000; }
-        #menus { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 16, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; backdrop-filter: blur(4px); z-index: 10; }
-        #menus h1 { font-size: 3rem; margin-bottom: 20px; color: var(--neon-pink); text-shadow: 0 0 15px var(--neon-pink), 0 0 30px var(--neon-pink); text-align: center; }
-        #menus p { margin-bottom: 30px; font-size: 1.2rem; color: var(--neon-blue); text-shadow: 0 0 5px var(--neon-blue); text-align: center;}
+        
+        /* 菜单弹窗 */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 16, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; backdrop-filter: blur(4px); z-index: 10; }
+        .overlay h1 { font-size: 3rem; margin-bottom: 20px; color: var(--neon-blue); text-shadow: 0 0 15px var(--neon-blue); text-align: center; }
+        .overlay p { margin-bottom: 30px; font-size: 1.2rem; color: #fff; text-shadow: 0 0 5px #fff; text-align: center;}
+        .menu-btns { display: flex; gap: 15px; flex-direction: column; }
+        
+        /* Boss UI */
+        #boss-ui { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 400px; text-align: center; display: none; z-index: 6; }
+        #boss-ui h2 { color: var(--neon-red); font-size: 1.2rem; text-shadow: 0 0 10px var(--neon-red); margin-bottom: 5px; letter-spacing: 2px; }
+        .hp-bar-bg { width: 100%; height: 15px; background: rgba(255,0,0,0.2); border: 2px solid var(--neon-red); border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        #boss-hp-fill { width: 100%; height: 100%; background: var(--neon-red); transition: width 0.1s linear; box-shadow: 0 0 10px var(--neon-red); }
+        
+        /* 危险提示 */
+        #warning-msg { position: absolute; top: 40%; left: 0; width: 100%; text-align: center; color: var(--neon-red); font-size: 3rem; font-weight: bold; text-shadow: 0 0 20px var(--neon-red); opacity: 0; display: none; z-index: 7; letter-spacing: 5px; }
+
         .hidden { display: none !important; }
     </style>
 </head>
@@ -32,36 +48,52 @@
     
     <div id="ui-layer">
         <div class="hud-top">
-            <div class="score">SCORE: <span id="scoreVal">0</span></div>
-            <div class="hp">HP: <span id="hpVal">100</span>%</div>
+            <div class="score">分数: <span id="scoreVal">0</span></div>
+            <div class="hp">生命值: <span id="hpVal">100</span>%</div>
         </div>
         <div id="controls">
-            <button id="muteBtn" class="btn">🔊 MUTE</button>
+            <button id="pauseBtn" class="btn">⏸ 暂停</button>
+            <button id="muteBtn" class="btn">🔊 音效</button>
         </div>
     </div>
 
-    <div id="menus">
-        <h1 id="menuTitle">NEON STRIKER</h1>
-        <p id="menuSubtitle">Touch & Drag to Move<br>Auto-Fire</p>
-        <button id="startBtn" class="btn" style="font-size: 1.5rem; padding: 15px 40px;">START MISSION</button>
+    <div id="boss-ui">
+        <h2>警告：高能反应</h2>
+        <div class="hp-bar-bg"><div id="boss-hp-fill"></div></div>
+    </div>
+    
+    <div id="warning-msg">⚠ 危险 ⚠</div>
+
+    <!-- 开始/结束 菜单 -->
+    <div id="mainMenu" class="overlay">
+        <h1 id="menuTitle">雷霆战机</h1>
+        <p id="menuSubtitle">触摸并拖拽移动战机<br>自动射击</p>
+        <div class="menu-btns">
+            <button id="startBtn" class="btn" style="font-size: 1.5rem; padding: 15px 40px;">开始游戏</button>
+        </div>
+    </div>
+
+    <!-- 暂停 菜单 -->
+    <div id="pauseMenu" class="overlay hidden">
+        <h1>游戏暂停</h1>
+        <div class="menu-btns">
+            <button id="resumeBtn" class="btn" style="font-size: 1.5rem; padding: 15px 40px;">继续游戏</button>
+            <button id="restartBtn" class="btn" style="font-size: 1.5rem; padding: 15px 40px; color: var(--neon-pink); border-color: var(--neon-pink);">重新开始</button>
+        </div>
     </div>
 
 <script>
 /** =========================================================================
- *  AUDIO MANAGER (Web Audio API Synthesizer)
+ *  AUDIO MANAGER (Web Audio API)
  *  ========================================================================= */
 class AudioManager {
     constructor() {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         this.muted = false;
-        this.bgmOsc = null;
-        this.bgmGain = null;
         this.bgmInterval = null;
     }
-
     init() { if (this.ctx.state === 'suspended') this.ctx.resume(); }
     toggleMute() { this.muted = !this.muted; return this.muted; }
-
     playTone(freq, type, duration, vol=0.1, slideFreq=null) {
         if (this.muted) return;
         const osc = this.ctx.createOscillator();
@@ -76,7 +108,6 @@ class AudioManager {
         osc.start();
         osc.stop(this.ctx.currentTime + duration);
     }
-
     playShoot() { this.playTone(800, 'square', 0.1, 0.05, 400); }
     playEnemyShoot() { this.playTone(600, 'sawtooth', 0.15, 0.03, 200); }
     playHit() { this.playTone(150, 'triangle', 0.1, 0.1, 50); }
@@ -96,50 +127,53 @@ class AudioManager {
         osc.start(now);
         osc.stop(now + 0.3);
     }
-    
-    playExplosion() {
+    playExplosion(isLarge=false) {
         if (this.muted) return;
-        const bufferSize = this.ctx.sampleRate * 0.5; // 0.5 seconds
+        const dur = isLarge ? 1.0 : 0.5;
+        const bufferSize = this.ctx.sampleRate * dur;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         
         const noise = this.ctx.createBufferSource();
         noise.buffer = buffer;
-        
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
-        filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.4);
+        filter.frequency.setValueAtTime(isLarge ? 500 : 1000, this.ctx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + dur);
         
         const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+        gain.gain.setValueAtTime(isLarge ? 0.4 : 0.2, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
         
         noise.connect(filter);
         filter.connect(gain);
         gain.connect(this.ctx.destination);
         noise.start();
     }
-
+    playWarning() {
+        if (this.muted) return;
+        let c = 0;
+        let int = setInterval(() => {
+            if(c++ > 5) clearInterval(int);
+            this.playTone(400, 'sawtooth', 0.3, 0.2);
+        }, 500);
+    }
     startBGM() {
         if (this.bgmInterval) clearInterval(this.bgmInterval);
         let noteIdx = 0;
-        const notes = [65.41, 65.41, 98.00, 73.42]; // C2, C2, G2, D2
+        const notes = [65.41, 65.41, 98.00, 73.42]; 
         this.bgmInterval = setInterval(() => {
-            if (!this.muted) {
-                this.playTone(notes[noteIdx % notes.length], 'square', 0.2, 0.02, notes[noteIdx % notes.length] * 0.9);
-            }
+            if (!this.muted) this.playTone(notes[noteIdx % notes.length], 'square', 0.2, 0.02, notes[noteIdx % notes.length] * 0.9);
             noteIdx++;
         }, 250);
     }
     stopBGM() { if (this.bgmInterval) clearInterval(this.bgmInterval); }
 }
-
 const audio = new AudioManager();
 
 /** =========================================================================
- *  CORE ENGINE & UTILS
+ *  CORE ENGINE
  *  ========================================================================= */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -159,8 +193,15 @@ resize();
 const Utils = {
     rand: (min, max) => Math.random() * (max - min) + min,
     dist: (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y),
-    rectIntersect: (r1, r2) => !(r2.x > r1.x + r1.w || r2.x + r2.w < r1.x || r2.y > r1.y + r1.h || r2.y + r2.h < r1.y),
-    circleIntersect: (c1, c2) => Utils.dist(c1, c2) < c1.r + c2.r
+    circleIntersect: (c1, c2) => Utils.dist(c1, c2) < c1.r + c2.r,
+    drawPoly: (ctx, x, y, pts, fill, stroke) => {
+        ctx.beginPath();
+        ctx.moveTo(x + pts[0][0], y + pts[0][1]);
+        for(let i=1; i<pts.length; i++) ctx.lineTo(x + pts[i][0], y + pts[i][1]);
+        ctx.closePath();
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+    }
 };
 
 /** =========================================================================
@@ -169,281 +210,312 @@ const Utils = {
 class Particle {
     constructor(x, y, color, speed, size, life) {
         this.x = x; this.y = y;
-        this.vx = (Math.random() - 0.5) * speed;
-        this.vy = (Math.random() - 0.5) * speed;
+        let angle = Math.random() * Math.PI * 2;
+        let v = Math.random() * speed;
+        this.vx = Math.cos(angle) * v;
+        this.vy = Math.sin(angle) * v;
         this.color = color;
         this.size = size;
         this.life = life;
         this.maxLife = life;
     }
-    update(dt) {
-        this.x += this.vx * dt * 60;
-        this.y += this.vy * dt * 60;
-        this.life -= dt;
-    }
+    update(dt) { this.x += this.vx * dt * 60; this.y += this.vy * dt * 60; this.life -= dt; }
     draw(ctx) {
         ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
         ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
     }
 }
 
 class Bullet {
     constructor(x, y, vx, vy, color, isEnemy, dmg) {
-        this.x = x; this.y = y;
-        this.vx = vx; this.vy = vy;
-        this.color = color;
-        this.isEnemy = isEnemy;
-        this.dmg = dmg;
-        this.r = 3;
-        this.active = true;
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.color = color; this.isEnemy = isEnemy; this.dmg = dmg;
+        this.r = isEnemy ? 4 : 3; this.active = true;
     }
     update(dt) {
-        this.x += this.vx * dt * 60;
-        this.y += this.vy * dt * 60;
-        if (this.y < -10 || this.y > height + 10 || this.x < -10 || this.x > width + 10) this.active = false;
+        this.x += this.vx * dt * 60; this.y += this.vy * dt * 60;
+        if (this.y < -50 || this.y > height + 50 || this.x < -50 || this.x > width + 50) this.active = false;
     }
     draw(ctx) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.fillStyle = "#fff";
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.shadowBlur = 10; ctx.shadowColor = this.color; ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
     }
 }
 
 class Ship {
-    constructor(x, y, hp, color) {
-        this.x = x; this.y = y;
-        this.hp = hp;
-        this.maxHp = hp;
-        this.color = color;
-        this.active = true;
-        this.r = 15;
+    constructor(x, y, hp, r) {
+        this.x = x; this.y = y; this.hp = hp; this.maxHp = hp;
+        this.active = true; this.r = r;
     }
     takeDamage(amt) {
         this.hp -= amt;
-        if (this.hp <= 0) {
-            this.hp = 0;
-            this.active = false;
-            this.explode();
-        } else {
-            audio.playHit();
-        }
+        if (this.hp <= 0) { this.hp = 0; this.active = false; this.explode(); } 
+        else if (this !== game.player && !(this instanceof Boss)) audio.playHit();
     }
-    explode() {
-        audio.playExplosion();
-        for(let i=0; i<30; i++) {
-            game.particles.push(new Particle(this.x, this.y, this.color, 10, Utils.rand(2,5), Utils.rand(0.5, 1.2)));
-            game.particles.push(new Particle(this.x, this.y, '#fff', 15, Utils.rand(1,3), Utils.rand(0.2, 0.5)));
+    explode(isLarge=false) {
+        audio.playExplosion(isLarge);
+        let cnt = isLarge ? 100 : 30;
+        for(let i=0; i<cnt; i++) {
+            game.particles.push(new Particle(this.x, this.y, '#ff8800', isLarge?15:10, Utils.rand(2,6), Utils.rand(0.5, 1.5)));
+            game.particles.push(new Particle(this.x, this.y, '#ffffff', isLarge?20:15, Utils.rand(1,3), Utils.rand(0.2, 0.8)));
         }
     }
 }
 
 class Player extends Ship {
     constructor(x, y) {
-        super(x, y, 100, '#00f3ff');
-        this.targetX = x;
-        this.targetY = y;
-        this.fireRate = 0.15;
-        this.fireTimer = 0;
-        this.weaponLevel = 1;
+        super(x, y, 100, 15);
+        this.targetX = x; this.targetY = y;
+        this.fireRate = 0.15; this.fireTimer = 0;
+        this.weaponLevel = 1; this.maxWeaponLevel = 6;
+        this.color = '#00f3ff';
+    }
+    upgrade() {
+        if(this.weaponLevel < this.maxWeaponLevel) {
+            this.weaponLevel++;
+            this.fireRate = Math.max(0.08, 0.15 - this.weaponLevel*0.01);
+        }
     }
     update(dt) {
-        // Smooth movement
-        this.x += (this.targetX - this.x) * 10 * dt;
-        this.y += (this.targetY - this.y) * 10 * dt;
-        
-        // Boundaries
+        this.x += (this.targetX - this.x) * 15 * dt;
+        this.y += (this.targetY - this.y) * 15 * dt;
         this.x = Math.max(this.r, Math.min(width - this.r, this.x));
         this.y = Math.max(this.r, Math.min(height - this.r, this.y));
 
-        // Engine trail
-        if (Math.random() < 0.5) {
-            game.particles.push(new Particle(this.x + Utils.rand(-5, 5), this.y + 10, '#00f3ff', 2, 2, 0.3));
-        }
+        if (Math.random() < 0.6) game.particles.push(new Particle(this.x + Utils.rand(-5, 5), this.y + 15, '#00f3ff', 3, 2, 0.3));
 
-        // Auto Fire
         this.fireTimer -= dt;
         if (this.fireTimer <= 0) {
             this.fireTimer = this.fireRate;
             audio.playShoot();
-            if (this.weaponLevel === 1) {
-                game.bullets.push(new Bullet(this.x, this.y - 15, 0, -12, this.color, false, 10));
-            } else if (this.weaponLevel === 2) {
-                game.bullets.push(new Bullet(this.x - 8, this.y - 10, 0, -12, this.color, false, 10));
-                game.bullets.push(new Bullet(this.x + 8, this.y - 10, 0, -12, this.color, false, 10));
+            let c = this.color;
+            let d = 10 + this.weaponLevel;
+            // Weapon patterns
+            if(this.weaponLevel === 1) {
+                game.bullets.push(new Bullet(this.x, this.y-15, 0, -15, c, false, d));
+            } else if(this.weaponLevel === 2) {
+                game.bullets.push(new Bullet(this.x-6, this.y-10, 0, -15, c, false, d));
+                game.bullets.push(new Bullet(this.x+6, this.y-10, 0, -15, c, false, d));
+            } else if(this.weaponLevel === 3) {
+                game.bullets.push(new Bullet(this.x, this.y-15, 0, -15, c, false, d));
+                game.bullets.push(new Bullet(this.x-10, this.y-5, -2, -14, c, false, d));
+                game.bullets.push(new Bullet(this.x+10, this.y-5, 2, -14, c, false, d));
+            } else if(this.weaponLevel === 4) {
+                for(let i=-2; i<=2; i++) game.bullets.push(new Bullet(this.x+i*8, this.y-10+Math.abs(i)*3, i*1.5, -15, c, false, d));
             } else {
-                game.bullets.push(new Bullet(this.x, this.y - 15, 0, -12, this.color, false, 10));
-                game.bullets.push(new Bullet(this.x - 10, this.y - 10, -2, -11, this.color, false, 8));
-                game.bullets.push(new Bullet(this.x + 10, this.y - 10, 2, -11, this.color, false, 8));
+                for(let i=-2; i<=2; i++) game.bullets.push(new Bullet(this.x+i*8, this.y-10+Math.abs(i)*3, i*2, -16, c, false, d));
+                if(this.weaponLevel >= 6) {
+                    game.bullets.push(new Bullet(this.x-15, this.y, -4, -12, '#ff00ff', false, d*1.5));
+                    game.bullets.push(new Bullet(this.x+15, this.y, 4, -12, '#ff00ff', false, d*1.5));
+                }
             }
         }
     }
     draw(ctx) {
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 2;
-        ctx.fillStyle = '#050510';
+        ctx.shadowBlur = 10; ctx.shadowColor = this.color;
         
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y - 15);
-        ctx.lineTo(this.x + 15, this.y + 15);
-        ctx.lineTo(this.x, this.y + 5);
-        ctx.lineTo(this.x - 15, this.y + 15);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+        // Wings
+        Utils.drawPoly(ctx, this.x, this.y, [[0,-5], [-20, 10], [-20, 15], [0, 5], [20, 15], [20, 10]], '#112', this.color);
+        // Fuselage
+        Utils.drawPoly(ctx, this.x, this.y, [[0,-20], [-8, 5], [-5, 15], [5, 15], [8, 5]], '#224', this.color);
+        // Cockpit
+        Utils.drawPoly(ctx, this.x, this.y, [[0,-10], [-3, 0], [0, 5], [3, 0]], '#fff', null);
         
-        // Core
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-        ctx.fill();
         ctx.shadowBlur = 0;
     }
 }
 
 class Enemy extends Ship {
     constructor(x, y, type) {
-        let hp = 20, color = '#ff00ff';
-        super(x, y, hp, color);
-        this.type = type; // 0: basic, 1: fast, 2: tank
-        this.time = 0;
+        let hp = 30, r = 15;
+        super(x, y, hp, r);
+        this.type = type; // 0: Scout, 1: Fighter, 2: Heavy, 3: Elite
+        this.time = Utils.rand(0, 100);
         
-        if (type === 1) { this.hp = 10; this.color = '#fffb00'; this.r = 10; }
-        if (type === 2) { this.hp = 80; this.color = '#ff3333'; this.r = 25; }
+        if (type === 1) { this.hp = 60; this.r = 18; }
+        if (type === 2) { this.hp = 150; this.r = 25; }
+        if (type === 3) { this.hp = 250; this.r = 22; }
         this.maxHp = this.hp;
-        this.fireTimer = Utils.rand(1, 3);
+        this.fireTimer = Utils.rand(1, 2);
     }
     update(dt) {
         this.time += dt;
-        let speedY = this.type === 1 ? 5 : (this.type === 2 ? 1.5 : 3);
+        let speedY = [3, 4, 1.5, 2.5][this.type];
         this.y += speedY * dt * 60;
         
-        if (this.type === 0) this.x += Math.sin(this.time * 2) * 2;
-        if (this.type === 1) this.x += Math.cos(this.time * 4) * 3;
+        if (this.type === 0) this.x += Math.sin(this.time * 2.5) * 3;
+        if (this.type === 1) this.x += Math.cos(this.time * 1.5) * 4;
+        if (this.type === 3) this.x += Math.sin(this.time * 3) * 5;
         
-        if (this.y > height + 30) this.active = false;
+        if (this.y > height + 50) this.active = false;
 
-        // Shoot
         this.fireTimer -= dt;
-        if (this.fireTimer <= 0 && this.type !== 1) {
-            this.fireTimer = this.type === 2 ? 1.5 : 2;
+        if (this.fireTimer <= 0) {
+            this.fireTimer = [1.5, 1.2, 2.0, 1.0][this.type];
             audio.playEnemyShoot();
-            game.bullets.push(new Bullet(this.x, this.y + this.r, 0, 6, this.color, true, 10));
-            if (this.type === 2) {
-                game.bullets.push(new Bullet(this.x, this.y + this.r, -3, 5, this.color, true, 10));
-                game.bullets.push(new Bullet(this.x, this.y + this.r, 3, 5, this.color, true, 10));
+            let c = '#ff3333';
+            if (this.type === 0) game.bullets.push(new Bullet(this.x, this.y+this.r, 0, 5, c, true, 10));
+            else if (this.type === 1) {
+                game.bullets.push(new Bullet(this.x-5, this.y+this.r, 0, 6, c, true, 10));
+                game.bullets.push(new Bullet(this.x+5, this.y+this.r, 0, 6, c, true, 10));
+            } else if (this.type === 2) {
+                for(let i=-2; i<=2; i++) game.bullets.push(new Bullet(this.x, this.y+this.r, i*1.5, 5, '#ff8800', true, 15));
+            } else if (this.type === 3) {
+                let dx = game.player ? game.player.x - this.x : 0;
+                let dy = game.player ? game.player.y - this.y : 1;
+                let angle = Math.atan2(dy, dx);
+                game.bullets.push(new Bullet(this.x, this.y+this.r, Math.cos(angle)*6, Math.sin(angle)*6, '#ff00ff', true, 20));
             }
         }
     }
     draw(ctx) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 2;
-        ctx.fillStyle = '#050510';
+        ctx.shadowBlur = 8;
+        let strokeC, fill1, fill2;
+        if(this.type === 0) { strokeC='#ff3333'; fill1='#311'; fill2='#522'; }
+        else if(this.type === 1) { strokeC='#ff8800'; fill1='#321'; fill2='#531'; }
+        else if(this.type === 2) { strokeC='#ff00ff'; fill1='#313'; fill2='#525'; }
+        else { strokeC='#fffb00'; fill1='#331'; fill2='#651'; }
         
-        ctx.beginPath();
-        if (this.type === 0) {
-            ctx.moveTo(this.x - 15, this.y - 10);
-            ctx.lineTo(this.x + 15, this.y - 10);
-            ctx.lineTo(this.x, this.y + 15);
-        } else if (this.type === 1) {
-            ctx.moveTo(this.x, this.y + 15);
-            ctx.lineTo(this.x + 10, this.y - 5);
-            ctx.lineTo(this.x - 10, this.y - 5);
-        } else if (this.type === 2) {
-            ctx.rect(this.x - 20, this.y - 20, 40, 40);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.shadowColor = strokeC; ctx.lineWidth = 1.5;
 
-        // HP Bar for tank
-        if (this.type === 2 && this.hp < this.maxHp) {
-            ctx.fillStyle = 'red';
-            ctx.fillRect(this.x - 20, this.y - 30, 40, 4);
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(this.x - 20, this.y - 30, 40 * (this.hp/this.maxHp), 4);
+        if (this.type === 0) {
+            Utils.drawPoly(ctx, this.x, this.y, [[0,15], [-12,-5], [0,-10], [12,-5]], fill1, strokeC);
+            Utils.drawPoly(ctx, this.x, this.y, [[0,5], [-5,-2], [0,-5], [5,-2]], fill2, null);
+        } else if (this.type === 1) {
+            Utils.drawPoly(ctx, this.x, this.y, [[0,18], [-15,-10], [-5,-10], [0,-15], [5,-10], [15,-10]], fill1, strokeC);
+        } else if (this.type === 2) {
+            Utils.drawPoly(ctx, this.x, this.y, [[-20,0], [-25,-15], [-10,-10], [0,20], [10,-10], [25,-15], [20,0]], fill1, strokeC);
+            Utils.drawPoly(ctx, this.x, this.y, [[-10,-5], [0,10], [10,-5]], fill2, null);
+        } else if (this.type === 3) {
+            Utils.drawPoly(ctx, this.x, this.y, [[0,20], [-20,5], [-15,-15], [0,-10], [15,-15], [20,5]], fill1, strokeC);
+            ctx.beginPath(); ctx.arc(this.x, this.y+2, 5, 0, Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
         }
+        ctx.shadowBlur = 0;
+    }
+}
+
+class Boss extends Ship {
+    constructor(x, y, level) {
+        super(x, y, 2000 + level*1500, 45);
+        this.level = level; // 1 to 5
+        this.state = 'enter'; // enter, fight
+        this.time = 0;
+        this.fireTimer = 0;
+        document.getElementById('boss-ui').style.display = 'block';
+    }
+    update(dt) {
+        this.time += dt;
+        if (this.state === 'enter') {
+            this.y += 20 * dt;
+            if (this.y > 100) this.state = 'fight';
+        } else {
+            // Movement
+            this.x = width/2 + Math.sin(this.time * (0.5 + this.level*0.1)) * (width/2 - 60);
+            this.y = 100 + Math.sin(this.time * 0.8) * 30;
+            
+            // Firing
+            this.fireTimer -= dt;
+            if (this.fireTimer <= 0) {
+                this.fireTimer = Math.max(0.1, 1.0 - this.level*0.15);
+                audio.playEnemyShoot();
+                
+                // Attack patterns based on time & level
+                let phase = Math.floor(this.time / 3) % 3;
+                if(phase === 0) {
+                    // Spread
+                    for(let i=0; i<5+this.level; i++) {
+                        let a = Math.PI/2 - 0.5 + (1.0/(4+this.level))*i;
+                        game.bullets.push(new Bullet(this.x, this.y+this.r, Math.cos(a)*5, Math.sin(a)*5, '#ff0000', true, 15));
+                    }
+                } else if (phase === 1) {
+                    // Circle
+                    let cnt = 10 + this.level*2;
+                    for(let i=0; i<cnt; i++) {
+                        let a = (Math.PI*2/cnt)*i + this.time;
+                        game.bullets.push(new Bullet(this.x, this.y, Math.cos(a)*4, Math.sin(a)*4, '#ff00ff', true, 15));
+                    }
+                    this.fireTimer += 0.5; // pause slightly
+                } else {
+                    // Aimed stream
+                    if(game.player) {
+                        let dx = game.player.x - this.x;
+                        let dy = game.player.y - this.y;
+                        let a = Math.atan2(dy, dx) + Utils.rand(-0.2, 0.2);
+                        game.bullets.push(new Bullet(this.x, this.y+this.r, Math.cos(a)*7, Math.sin(a)*7, '#fffb00', true, 20));
+                    }
+                    this.fireTimer = 0.15; // fast stream
+                }
+            }
+        }
+        
+        // Update Boss HP UI
+        let pct = Math.max(0, this.hp / this.maxHp * 100);
+        document.getElementById('boss-hp-fill').style.width = pct + '%';
+    }
+    draw(ctx) {
+        ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000'; ctx.lineWidth = 2;
+        let c1 = '#200', c2 = '#ff0000', c3 = '#500';
+        
+        // Complex Boss Shape
+        Utils.drawPoly(ctx, this.x, this.y, [[0,45], [-30,20], [-40,-10], [-50,-30], [-20,-20], [0,-30], [20,-20], [50,-30], [40,-10], [30,20]], c1, c2);
+        Utils.drawPoly(ctx, this.x, this.y, [[0,20], [-15,0], [0,-10], [15,0]], c3, c2);
+        
+        // Glowing core
+        ctx.beginPath(); ctx.arc(this.x, this.y, 8 + Math.sin(this.time*5)*3, 0, Math.PI*2); 
+        ctx.fillStyle = '#ffbbee'; ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+    explode() {
+        super.explode(true);
+        document.getElementById('boss-ui').style.display = 'none';
+        game.bossActive = false;
+        game.bossDefeated++;
+        game.score += 5000 * this.level;
     }
 }
 
 class PowerUp {
     constructor(x, y) {
-        this.x = x; this.y = y;
-        this.r = 12;
-        this.color = '#00ff00';
-        this.active = true;
-        this.time = 0;
+        this.x = x; this.y = y; this.r = 12; this.active = true; this.time = 0;
     }
-    update(dt) {
-        this.time += dt;
-        this.y += 2 * dt * 60;
-        if (this.y > height + 20) this.active = false;
-    }
+    update(dt) { this.time += dt; this.y += 2 * dt * 60; if (this.y > height + 20) this.active = false; }
     draw(ctx) {
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = this.color;
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r + Math.sin(this.time*10)*2, 0, Math.PI*2);
-        ctx.stroke();
-        ctx.fillStyle = '#fff';
-        ctx.font = '12px Courier';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('P', this.x, this.y);
-        ctx.shadowBlur = 0;
+        ctx.shadowBlur = 15; ctx.shadowColor = '#00ff00'; ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.r + Math.sin(this.time*10)*2, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('UP', this.x, this.y); ctx.shadowBlur = 0;
     }
 }
 
 class Star {
-    constructor() {
-        this.x = Math.random() * width;
-        this.y = Math.random() * height;
-        this.z = Math.random() * 2 + 0.1;
-        this.alpha = Math.random();
-    }
+    constructor() { this.x = Math.random() * width; this.y = Math.random() * height; this.z = Math.random() * 2 + 0.1; this.alpha = Math.random(); }
     update(dt) {
-        this.y += this.z * 50 * dt;
-        if (this.y > height) {
-            this.y = 0;
-            this.x = Math.random() * width;
-        }
+        this.y += this.z * (game.bossActive ? 150 : 50) * dt; // speed up stars during boss
+        if (this.y > height) { this.y = 0; this.x = Math.random() * width; }
     }
-    draw(ctx) {
-        ctx.fillStyle = `rgba(255,255,255,${this.alpha})`;
-        ctx.fillRect(this.x, this.y, this.z, this.z * 2);
-    }
+    draw(ctx) { ctx.fillStyle = `rgba(255,255,255,${this.alpha})`; ctx.fillRect(this.x, this.y, this.z, this.z * 2); }
 }
 
 /** =========================================================================
  *  GAME LOOP & LOGIC
  *  ========================================================================= */
 const game = {
-    state: 'menu', // menu, playing, gameover
+    state: 'menu', // menu, playing, paused, gameover
     lastTime: 0,
     score: 0,
     difficulty: 1,
     spawnTimer: 0,
+    bossActive: false,
+    bossDefeated: 0,
+    nextBossScore: 2000,
+    warningPhase: false,
+    warningTimer: 0,
     
-    player: null,
-    enemies: [],
-    bullets: [],
-    particles: [],
-    powerups: [],
-    stars: [],
+    player: null, boss: null,
+    enemies: [], bullets: [], particles: [], powerups: [], stars: [],
 
     init() {
         for(let i=0; i<100; i++) this.stars.push(new Star());
@@ -452,28 +524,38 @@ const game = {
     },
 
     start() {
-        audio.init();
-        audio.startBGM();
+        audio.init(); audio.startBGM();
         this.player = new Player(width / 2, height - 100);
-        this.enemies = [];
-        this.bullets = [];
-        this.particles = [];
-        this.powerups = [];
-        this.score = 0;
-        this.difficulty = 1;
+        this.enemies = []; this.bullets = []; this.particles = []; this.powerups = [];
+        this.boss = null; this.bossActive = false; this.warningPhase = false;
+        this.score = 0; this.difficulty = 1; this.bossDefeated = 0; this.nextBossScore = 2000;
         this.state = 'playing';
         
-        document.getElementById('menus').classList.add('hidden');
+        document.getElementById('mainMenu').classList.add('hidden');
+        document.getElementById('pauseMenu').classList.add('hidden');
+        document.getElementById('boss-ui').style.display = 'none';
+        document.getElementById('warning-msg').style.display = 'none';
         this.updateUI();
     },
 
+    togglePause() {
+        if(this.state === 'playing') {
+            this.state = 'paused';
+            document.getElementById('pauseMenu').classList.remove('hidden');
+        } else if(this.state === 'paused') {
+            this.state = 'playing';
+            this.lastTime = performance.now(); // prevent jump
+            document.getElementById('pauseMenu').classList.add('hidden');
+        }
+    },
+
     gameOver() {
-        this.state = 'gameover';
-        audio.stopBGM();
-        document.getElementById('menus').classList.remove('hidden');
-        document.getElementById('menuTitle').innerText = 'MISSION FAILED';
-        document.getElementById('menuSubtitle').innerText = `FINAL SCORE: ${this.score}`;
-        document.getElementById('startBtn').innerText = 'RESTART';
+        this.state = 'gameover'; audio.stopBGM();
+        document.getElementById('mainMenu').classList.remove('hidden');
+        document.getElementById('boss-ui').style.display = 'none';
+        document.getElementById('menuTitle').innerText = '任务失败';
+        document.getElementById('menuSubtitle').innerText = `最终分数: ${this.score}`;
+        document.getElementById('startBtn').innerText = '重新开始';
     },
 
     bindEvents() {
@@ -481,49 +563,82 @@ const game = {
             if (this.state !== 'playing' || !this.player) return;
             let cx = e.clientX || (e.touches && e.touches[0].clientX);
             let cy = e.clientY || (e.touches && e.touches[0].clientY);
-            if (cx !== undefined) {
-                // Offset finger slightly above the ship so it's not hidden
-                this.player.targetX = cx;
-                this.player.targetY = cy - 40; 
-            }
+            if (cx !== undefined) { this.player.targetX = cx; this.player.targetY = cy - 40; }
         };
-
         canvas.addEventListener('touchmove', setPlayerTarget, {passive: false});
         canvas.addEventListener('touchstart', setPlayerTarget, {passive: false});
         canvas.addEventListener('mousemove', setPlayerTarget);
 
         document.getElementById('startBtn').addEventListener('click', () => this.start());
+        document.getElementById('resumeBtn').addEventListener('click', () => this.togglePause());
+        document.getElementById('restartBtn').addEventListener('click', () => this.start());
+        document.getElementById('pauseBtn').addEventListener('click', () => this.togglePause());
         
         const muteBtn = document.getElementById('muteBtn');
         muteBtn.addEventListener('click', () => {
-            const isMuted = audio.toggleMute();
-            muteBtn.innerText = isMuted ? '🔇 MUTED' : '🔊 MUTE';
-            if(isMuted) audio.stopBGM(); else if(this.state === 'playing') audio.startBGM();
+            const m = audio.toggleMute();
+            muteBtn.innerText = m ? '🔇 静音' : '🔊 音效';
+            if(m) audio.stopBGM(); else if(this.state === 'playing') audio.startBGM();
         });
     },
 
     spawnEnemy() {
+        if(this.bossActive || this.warningPhase) return;
         let x = Utils.rand(30, width - 30);
         let rand = Math.random();
         let type = 0;
-        if (rand < 0.2 * this.difficulty) type = 1; // Fast
-        if (rand > 0.9 - (this.difficulty * 0.05)) type = 2; // Tank
-        
+        if(this.difficulty > 1.2 && rand < 0.3) type = 1;
+        if(this.difficulty > 1.5 && rand > 0.8) type = 2;
+        if(this.difficulty > 2.0 && rand > 0.9) type = 3;
         this.enemies.push(new Enemy(x, -30, type));
+    },
+
+    triggerBossWarning() {
+        this.warningPhase = true;
+        this.warningTimer = 3.0; // 3 seconds warning
+        this.enemies = []; // clear small enemies
+        let wMsg = document.getElementById('warning-msg');
+        wMsg.style.display = 'block';
+        wMsg.style.opacity = '1';
+        audio.playWarning();
+        
+        let blink = setInterval(() => {
+            if(this.state !== 'playing') return;
+            wMsg.style.opacity = wMsg.style.opacity == '1' ? '0' : '1';
+        }, 250);
+        
+        setTimeout(() => {
+            clearInterval(blink);
+            wMsg.style.display = 'none';
+            this.warningPhase = false;
+            this.spawnBoss();
+        }, 3000);
+    },
+
+    spawnBoss() {
+        this.bossActive = true;
+        let lvl = Math.min(5, this.bossDefeated + 1);
+        this.boss = new Boss(width/2, -50, lvl);
+        this.enemies.push(this.boss);
     },
 
     update(dt) {
         if (this.state !== 'playing') {
-            this.stars.forEach(s => s.update(dt * 0.2));
+            if(this.state === 'menu' || this.state === 'gameover') this.stars.forEach(s => s.update(dt * 0.2));
             return;
         }
 
-        // Difficulty scaling
-        this.difficulty += dt * 0.01;
+        // Progression logic
+        if(!this.bossActive && !this.warningPhase && this.score >= this.nextBossScore) {
+            this.triggerBossWarning();
+            this.nextBossScore += (5000 + this.bossDefeated * 3000);
+        }
+
+        this.difficulty = 1 + (this.score / 5000);
         this.spawnTimer -= dt;
         if (this.spawnTimer <= 0) {
             this.spawnEnemy();
-            this.spawnTimer = Math.max(0.3, 2.0 - (this.difficulty * 0.2));
+            this.spawnTimer = Math.max(0.4, 2.0 - (this.difficulty * 0.3));
         }
 
         this.stars.forEach(s => s.update(dt));
@@ -538,34 +653,28 @@ const game = {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             let e = this.enemies[i];
             
-            // Player vs Enemy
             if (this.player && Utils.circleIntersect(this.player, e)) {
-                e.takeDamage(100);
+                if(!(e instanceof Boss)) e.takeDamage(500);
                 this.player.takeDamage(20);
                 this.updateUI();
             }
 
-            // Bullet vs Enemy
             for (let j = this.bullets.length - 1; j >= 0; j--) {
                 let b = this.bullets[j];
                 if (!b.isEnemy && b.active && Utils.circleIntersect(b, e)) {
                     b.active = false;
                     e.takeDamage(b.dmg);
-                    
-                    // Sparkles
-                    for(let k=0; k<3; k++) this.particles.push(new Particle(b.x, b.y, e.color, 5, 2, 0.2));
+                    for(let k=0; k<2; k++) this.particles.push(new Particle(b.x, b.y, '#fff', 5, 2, 0.2));
 
-                    if (!e.active) {
-                        this.score += (e.type === 2 ? 500 : (e.type === 1 ? 200 : 100));
+                    if (!e.active && !(e instanceof Boss)) {
+                        this.score += [100, 200, 400, 600][e.type];
                         this.updateUI();
-                        // Drop powerup chance
-                        if (Math.random() < 0.1) this.powerups.push(new PowerUp(e.x, e.y));
+                        if (Math.random() < 0.08) this.powerups.push(new PowerUp(e.x, e.y));
                     }
                 }
             }
         }
 
-        // Enemy Bullet vs Player
         if (this.player && this.player.active) {
             for (let i = 0; i < this.bullets.length; i++) {
                 let b = this.bullets[i];
@@ -575,21 +684,18 @@ const game = {
                     this.updateUI();
                 }
             }
-            
-            // Player vs Powerup
             for (let i = 0; i < this.powerups.length; i++) {
                 let p = this.powerups[i];
                 if (p.active && Utils.circleIntersect(p, this.player)) {
                     p.active = false;
                     audio.playPowerUp();
-                    if (this.player.weaponLevel < 3) this.player.weaponLevel++;
-                    this.score += 300;
+                    this.player.upgrade();
+                    this.score += 500;
                     this.updateUI();
                 }
             }
         }
 
-        // Cleanup
         this.bullets = this.bullets.filter(b => b.active);
         this.enemies = this.enemies.filter(e => e.active);
         this.particles = this.particles.filter(p => p.life > 0);
@@ -602,13 +708,10 @@ const game = {
     },
 
     draw() {
-        ctx.fillStyle = '#050510';
-        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, width, height);
 
-        // Grid Background
-        ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
+        ctx.strokeStyle = game.bossActive ? 'rgba(255, 0, 0, 0.05)' : 'rgba(0, 243, 255, 0.05)';
+        ctx.lineWidth = 1; ctx.beginPath();
         let offset = (Date.now() / 20) % 50;
         for(let i=0; i<width; i+=50) { ctx.moveTo(i, 0); ctx.lineTo(i, height); }
         for(let i=0; i<height; i+=50) { ctx.moveTo(0, i + offset); ctx.lineTo(width, i + offset); }
@@ -624,12 +727,12 @@ const game = {
 
     updateUI() {
         document.getElementById('scoreVal').innerText = this.score;
-        document.getElementById('hpVal').innerText = this.player ? this.player.hp : 0;
+        document.getElementById('hpVal').innerText = this.player ? Math.floor(this.player.hp) : 0;
     },
 
     loop(timestamp) {
         let dt = (timestamp - this.lastTime) / 1000;
-        if (dt > 0.1) dt = 0.1; // Cap dt on tab switch
+        if (dt > 0.1) dt = 0.1; 
         this.lastTime = timestamp;
 
         this.update(dt);
@@ -639,9 +742,7 @@ const game = {
     }
 };
 
-// Start Engine
 window.onload = () => game.init();
-
 </script>
 </body>
 </html>
