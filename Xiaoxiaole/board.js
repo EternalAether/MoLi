@@ -94,24 +94,27 @@ class BoardLogic {
         this.resolveInitialBoard();
     }
 
-    // 查找匹配（支持判定生成特殊道具）
+    // 完整版：支持 4连、5连直线 以及 T/L型交叉检测
     findMatches(createSpecials = true) {
         let matchedSet = new Set();
         let specialsToCreate = [];
+        
+        // 记录每个格子参与横向和纵向消除的长度，用于判断交叉
+        let matchLenMap = Array.from({length: CONFIG.ROWS}, () => Array(CONFIG.COLS).fill({h: 0, v: 0}));
 
-        // 横向检测
+        // 1. 横向检测
         for (let r = 0; r < CONFIG.ROWS; r++) {
             for (let c = 0; c < CONFIG.COLS - 2; c++) {
                 let color = this.grid[r][c]?.color;
                 if (color == null) continue;
-                
                 let matchLen = 1;
-                while (c + matchLen < CONFIG.COLS && this.grid[r][c + matchLen]?.color === color) {
-                    matchLen++;
-                }
-
+                while (c + matchLen < CONFIG.COLS && this.grid[r][c + matchLen]?.color === color) matchLen++;
+                
                 if (matchLen >= 3) {
-                    for (let i = 0; i < matchLen; i++) matchedSet.add(`${r},${c+i}`);
+                    for (let i = 0; i < matchLen; i++) {
+                        matchedSet.add(`${r},${c+i}`);
+                        matchLenMap[r][c+i] = { ...matchLenMap[r][c+i], h: matchLen }; // 记录横向长度
+                    }
                     if (createSpecials && matchLen === 4) specialsToCreate.push({r, c, type: CONFIG.TYPES.ROW, color});
                     if (createSpecials && matchLen >= 5) specialsToCreate.push({r, c, type: CONFIG.TYPES.RAINBOW, color});
                     c += matchLen - 1;
@@ -119,29 +122,43 @@ class BoardLogic {
             }
         }
 
-        // 纵向检测
+        // 2. 纵向检测
         for (let c = 0; c < CONFIG.COLS; c++) {
             for (let r = 0; r < CONFIG.ROWS - 2; r++) {
                 let color = this.grid[r][c]?.color;
                 if (color == null) continue;
-                
                 let matchLen = 1;
-                while (r + matchLen < CONFIG.ROWS && this.grid[r + matchLen][c]?.color === color) {
-                    matchLen++;
-                }
-
+                while (r + matchLen < CONFIG.ROWS && this.grid[r + matchLen][c]?.color === color) matchLen++;
+                
                 if (matchLen >= 3) {
-                    for (let i = 0; i < matchLen; i++) matchedSet.add(`${r+i},${c}`);
-                    if (createSpecials && matchLen === 4) specialsToCreate.push({r, c, type: CONFIG.TYPES.COL, color});
-                    if (createSpecials && matchLen >= 5) specialsToCreate.push({r, c, type: CONFIG.TYPES.RAINBOW, color});
+                    for (let i = 0; i < matchLen; i++) {
+                        matchedSet.add(`${r+i},${c}`);
+                        matchLenMap[r+i][c] = { ...matchLenMap[r+i][c], v: matchLen }; // 记录纵向长度
+                    }
+                    if (createSpecials && matchLen === 4 && matchLenMap[r][c].h < 5) specialsToCreate.push({r, c, type: CONFIG.TYPES.COL, color});
+                    if (createSpecials && matchLen >= 5 && matchLenMap[r][c].h < 5) specialsToCreate.push({r, c, type: CONFIG.TYPES.RAINBOW, color});
                     r += matchLen - 1;
                 }
             }
         }
 
-        // 简化的十字/T型检测 (Area Bomb)
-        // 实际开发中需通过检测交点，此处为了保证性能与基础逻辑，利用集合交叉判定
-        
+        // 3. T/L型交叉检测 (生成 Area Bomb)
+        if (createSpecials) {
+            for (let r = 0; r < CONFIG.ROWS; r++) {
+                for (let c = 0; c < CONFIG.COLS; c++) {
+                    let hLen = matchLenMap[r][c].h;
+                    let vLen = matchLenMap[r][c].v;
+                    // 如果同一个点既参与了横向>=3消除，又参与了纵向>=3消除，且都不是5连直线，那就是T或L型
+                    if (hLen >= 3 && vLen >= 3 && hLen < 5 && vLen < 5) {
+                        let color = this.grid[r][c].color;
+                        // 过滤掉同一个位置生成的其他道具
+                        specialsToCreate = specialsToCreate.filter(sp => !(sp.r === r && sp.c === c));
+                        specialsToCreate.push({r, c, type: CONFIG.TYPES.AREA, color});
+                    }
+                }
+            }
+        }
+
         return {
             cells: Array.from(matchedSet).map(s => {
                 let [r, c] = s.split(',').map(Number);
