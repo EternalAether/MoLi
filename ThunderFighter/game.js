@@ -985,17 +985,16 @@ function gameLoop(now) {
     if (player.hp <= 30 && player.hp > 0) {
     let pulseAlpha = 0.2 + Math.sin(now / 150) * 0.15;
     ctx.save();
-    // 阴影模糊半径（数值越大光晕越扩散）
-    ctx.shadowBlur = 50;
+    // 阴影模糊实现边缘扩散/光晕效果
+    ctx.shadowBlur = 25;               // 数值越大边缘越柔和、光晕越大
     ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
-    // 矩形填充色（半透明红，呼吸效果）
     ctx.fillStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
 
-    const edgeWidth = 25;   // 边缘宽度（想要“减小红光边缘”就调小这个值，例如 15~30）
+    const edgeWidth = 15;              // 左右边缘宽度（可调小以减细红光）
     // 左边缘
-    ctx.fillRect(0, edgeWidth, edgeWidth, H - 2 * edgeWidth);
+    ctx.fillRect(0, 0, edgeWidth, H);
     // 右边缘
-    ctx.fillRect(W - edgeWidth, edgeWidth, edgeWidth, H - 2 * edgeWidth);
+    ctx.fillRect(W - edgeWidth, 0, edgeWidth, H);
 
     ctx.restore();
 }
