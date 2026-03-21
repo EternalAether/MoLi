@@ -95,9 +95,9 @@ function playSound(type) {
 // ==========================================
 // 游戏状态与输入
 // ==========================================
-let gameState = 'playing'; // playing, paused, gameover
+let gameState = 'playing'; 
 let score = 0;
-let stageLevel = 1; // 关卡1-5, 6为无尽
+let stageLevel = 1; 
 let bossMode = false;
 let bossDefeatedCount = 0;
 let nextBossScore = 10000;
@@ -158,7 +158,6 @@ class Pool {
     }
 }
 
-// 粒子特效
 class Particle {
     constructor() { this.active = false; }
     spawn(x, y, vx, vy, color, life, size) {
@@ -194,17 +193,57 @@ function createExplosion(x, y, color, count) {
     }
 }
 
-// 子弹
 class Bullet {
     constructor() { this.active = false; }
-    spawn(x, y, vx, vy, color, isPlayer, dmg) {
+    spawn(x, y, vx, vy, color, isPlayer, dmg, isHoming = false) {
         this.x = x; this.y = y; this.vx = vx; this.vy = vy;
         this.color = color; this.isPlayer = isPlayer; this.dmg = dmg;
+        this.isHoming = isHoming;
         this.radius = isPlayer ? 3 : 4;
+        if (this.isHoming) this.radius = 5;
         this.active = true;
     }
     update(dt) {
         if(!this.active) return;
+        
+        if (this.isHoming && this.isPlayer) {
+            let target = null;
+            let minDist = 800; 
+            enemyPool.items.forEach(e => {
+                if(e.active && e.y < H && e.y > -20) {
+                    let d = Math.hypot(e.x - this.x, e.y - this.y);
+                    if(d < minDist) { minDist = d; target = e; }
+                }
+            });
+            if(boss.active && boss.state === 'attack') {
+                let d = Math.hypot(boss.x - this.x, boss.y - this.y);
+                if(d < minDist) { minDist = d; target = boss; }
+            }
+            
+            if(target) {
+                let angleToTarget = Math.atan2(target.y - this.y, target.x - this.x);
+                let currentAngle = Math.atan2(this.vy, this.vx);
+                let diff = angleToTarget - currentAngle;
+                
+                while (diff <= -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                
+                let turnSpeed = 10 * dt; 
+                let newAngle = currentAngle + Math.sign(diff) * Math.min(Math.abs(diff), turnSpeed);
+                
+                let speed = Math.hypot(this.vx, this.vy);
+                speed = Math.min(900, speed + 300 * dt); // 导弹加速
+                this.vx = Math.cos(newAngle) * speed;
+                this.vy = Math.sin(newAngle) * speed;
+                
+                // 导弹尾焰
+                if(Math.random() < 0.3) {
+                    let p = particlePool.get();
+                    if(p) p.spawn(this.x, this.y, -this.vx*0.2, -this.vy*0.2, '#f80', 0.2, 1.5);
+                }
+            }
+        }
+
         this.x += this.vx * dt; this.y += this.vy * dt;
         if(this.y < -50 || this.y > H + 50 || this.x < -50 || this.x > W + 50) this.active = false;
     }
@@ -216,7 +255,7 @@ class Bullet {
         ctx.shadowBlur = 0;
     }
 }
-const bulletPool = new Pool(() => new Bullet(), 1500);
+const bulletPool = new Pool(() => new Bullet(), 2500);
 
 // ==========================================
 // 玩家类
@@ -306,29 +345,57 @@ class Player {
         playSound('shoot');
         this.shootCooldown = Math.max(0.08, 0.2 - this.power * 0.015);
         const bSpeed = -600;
+        const pX = this.x; const pY = this.y - 15;
         
-        // 1-5级：1-5条弹道
-        let num = Math.min(5, this.power);
-        for(let i=0; i<num; i++) {
-            let offset = (i - (num-1)/2) * 10;
-            let b = bulletPool.get();
-            if(b) b.spawn(this.x + offset, this.y - 15, 0, bSpeed, '#0ff', true, 10 + this.power*2);
+        // 直射弹道
+        if (this.power === 1) {
+            let b = bulletPool.get(); if(b) b.spawn(pX, pY, 0, bSpeed, '#0ff', true, 10);
+        } else if (this.power === 2) {
+            let b1 = bulletPool.get(); if(b1) b1.spawn(pX - 8, pY, 0, bSpeed, '#0ff', true, 10);
+            let b2 = bulletPool.get(); if(b2) b2.spawn(pX + 8, pY, 0, bSpeed, '#0ff', true, 10);
+        } else if (this.power >= 3) {
+            let b1 = bulletPool.get(); if(b1) b1.spawn(pX - 12, pY, 0, bSpeed, '#0ff', true, 10 + this.power);
+            let b2 = bulletPool.get(); if(b2) b2.spawn(pX, pY - 5, 0, bSpeed, '#0ff', true, 10 + this.power);
+            let b3 = bulletPool.get(); if(b3) b3.spawn(pX + 12, pY, 0, bSpeed, '#0ff', true, 10 + this.power);
         }
 
-        // 6级及以上：第一对僚机
+        // 4级及以上：左右两边扇形弹道
+        if (this.power >= 4) {
+            let a1 = -0.2, a2 = 0.2;
+            let b4 = bulletPool.get(); if(b4) b4.spawn(pX - 5, pY, Math.sin(a1)*bSpeed*-1, Math.cos(a1)*bSpeed, '#0ff', true, 8 + this.power);
+            let b5 = bulletPool.get(); if(b5) b5.spawn(pX + 5, pY, Math.sin(a2)*bSpeed*-1, Math.cos(a2)*bSpeed, '#0ff', true, 8 + this.power);
+        }
+
+        // 5级及以上：再加左右两边扇形弹道
+        if (this.power >= 5) {
+            let a3 = -0.4, a4 = 0.4;
+            let b6 = bulletPool.get(); if(b6) b6.spawn(pX - 10, pY, Math.sin(a3)*bSpeed*-1, Math.cos(a3)*bSpeed, '#0ff', true, 8 + this.power);
+            let b7 = bulletPool.get(); if(b7) b7.spawn(pX + 10, pY, Math.sin(a4)*bSpeed*-1, Math.cos(a4)*bSpeed, '#0ff', true, 8 + this.power);
+        }
+
+        // 6级及以上：第一对僚机 (直射)
         if (this.power >= 6) {
             let wx1 = this.x - 30; let wy1 = this.y + Math.sin(this.wingmanAngle)*5;
             let wx2 = this.x + 30; let wy2 = this.y + Math.cos(this.wingmanAngle)*5;
-            let b3 = bulletPool.get(); if(b3) b3.spawn(wx1, wy1 - 10, 0, bSpeed, '#0f0', true, 8);
-            let b4 = bulletPool.get(); if(b4) b4.spawn(wx2, wy2 - 10, 0, bSpeed, '#0f0', true, 8);
+            let b8 = bulletPool.get(); if(b8) b8.spawn(wx1, wy1 - 10, 0, bSpeed, '#0f0', true, 10);
+            let b9 = bulletPool.get(); if(b9) b9.spawn(wx2, wy2 - 10, 0, bSpeed, '#0f0', true, 10);
         }
 
-        // 8级：第二对僚机 (发射普通子弹)
+        // 8级及以上：第二对僚机 (普通直射，激光在update中处理)
         if (this.power >= 8) {
             let wx3 = this.x - 50; let wy3 = this.y + Math.sin(this.wingmanAngle+Math.PI)*5 + 10;
             let wx4 = this.x + 50; let wy4 = this.y + Math.cos(this.wingmanAngle+Math.PI)*5 + 10;
-            let b5 = bulletPool.get(); if(b5) b5.spawn(wx3, wy3 - 10, 0, bSpeed, '#0ff', true, 8);
-            let b6 = bulletPool.get(); if(b6) b6.spawn(wx4, wy4 - 10, 0, bSpeed, '#0ff', true, 8);
+            let b10 = bulletPool.get(); if(b10) b10.spawn(wx3, wy3 - 10, 0, bSpeed, '#f0f', true, 10);
+            let b11 = bulletPool.get(); if(b11) b11.spawn(wx4, wy4 - 10, 0, bSpeed, '#f0f', true, 10);
+        }
+
+        // 9级：第三对僚机 (自动追踪)
+        if (this.power >= 9) {
+            let wx5 = this.x - 40; let wy5 = this.y + Math.sin(this.wingmanAngle*1.5)*5 + 25;
+            let wx6 = this.x + 40; let wy6 = this.y + Math.cos(this.wingmanAngle*1.5)*5 + 25;
+            let hbSpeed = -300; 
+            let b12 = bulletPool.get(); if(b12) b12.spawn(wx5, wy5, -50, hbSpeed, '#f80', true, 15, true);
+            let b13 = bulletPool.get(); if(b13) b13.spawn(wx6, wy6, 50, hbSpeed, '#f80', true, 15, true);
         }
     }
     processLaserDamage(dt, laserX, laserWidth, dmgRate) {
@@ -412,6 +479,30 @@ class Player {
             ctx.restore();
         }
 
+        // 第三对僚机 (追踪)
+        if (this.power >= 9) {
+            ctx.save();
+            ctx.shadowBlur = 10; ctx.shadowColor = '#f80';
+            ctx.fillStyle = '#310'; ctx.strokeStyle = '#f80'; ctx.lineWidth = 1.5;
+            let yo5 = Math.sin(this.wingmanAngle*1.5)*5 + 25;
+            let yo6 = Math.cos(this.wingmanAngle*1.5)*5 + 25;
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x - 40, this.y + yo5 - 6);
+            ctx.lineTo(this.x - 45, this.y + yo5 + 6);
+            ctx.lineTo(this.x - 35, this.y + yo5 + 6);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(this.x + 40, this.y + yo6 - 6);
+            ctx.lineTo(this.x + 35, this.y + yo6 + 6);
+            ctx.lineTo(this.x + 45, this.y + yo6 + 6);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            ctx.restore();
+        }
+
         // 主激光
         if (this.power >= 7 && this.laserActiveTime > 0) {
             ctx.save();
@@ -431,7 +522,7 @@ const player = new Player();
 // ==========================================
 class Item {
     constructor() { this.active = false; }
-    spawn(x, y, type) { // type 0 = power, type 1 = health
+    spawn(x, y, type) { 
         this.x = x; this.y = y; this.active = true; this.radius = 10; this.vy = 80;
         this.type = type;
     }
@@ -449,14 +540,14 @@ class Item {
             this.active = false;
             playSound('powerup');
             if(this.type === 0) {
-                if(player.power < 8) {
+                if(player.power < 9) {
                     player.power++;
                 } else {
                     player.shieldActive = true;
                     player.shieldTime = 30;
                 }
             } else {
-                player.hp = Math.min(100, player.hp + 30); // 回血
+                player.hp = Math.min(100, player.hp + 30); 
             }
             updateHUD();
         }
@@ -533,7 +624,8 @@ class Enemy {
         playSound('hit');
         if(this.hp <= 0) {
             this.active = false;
-            score += (this.type + 1) * 10; 
+            // 基础得分 + 20
+            score += (this.type + 1) * 10 + 20; 
             createExplosion(this.x, this.y, this.color, 10);
             if(this.type === 2) { 
                 let item = itemPool.get(); if(item) item.spawn(this.x, this.y, 0); 
@@ -663,7 +755,6 @@ class Boss {
             else if (bossDefeatedCount === 4) nextBossScore = 150000;
             else nextBossScore += 100000;
 
-            // 升级关卡并控制同屏数量
             stageLevel = Math.min(6, bossDefeatedCount + 1);
 
             document.getElementById('bossUI').style.display = 'none';
@@ -712,13 +803,13 @@ function spawnEnemies(dt) {
     spawnTimer -= dt;
     if(spawnTimer <= 0) {
         spawnTimer = Math.max(0.4, 1.5 - stageLevel * 0.15);
-        // 关卡对应敌机上限: 关卡1(4), 关卡2(5), 关卡3(6), 关卡4(7), 关卡5及以后(8)
         let maxEnemies = Math.min(8, 3 + stageLevel);
         let activeCount = enemyPool.items.filter(e => e.active).length;
         
         if(activeCount < maxEnemies) {
             let type = Math.floor(Math.random() * 6);
-            if(Math.random() < 0.03) type = 2; // 降低升级道具出现的概率 (约3%)
+            // 再降低升级道具出现的概率 (约1%)
+            if(Math.random() < 0.01) type = 2; 
             
             if([2,3,5].includes(type) && enemyPool.items.some(e => e.active && [2,3,5].includes(e.type))) {
                 type = Math.random() < 0.5 ? 0 : 1;
@@ -753,7 +844,7 @@ function updateHUD() {
     let lvText = stageLevel >= 6 ? '无尽' : stageLevel;
     document.getElementById('levelVal').innerText = lvText;
     document.getElementById('hpVal').innerText = Math.floor(player.hp);
-    let powerText = player.power === 8 ? 'MAX' : player.power;
+    let powerText = player.power >= 9 ? 'MAX' : player.power;
     document.getElementById('powerVal').innerText = powerText;
 }
 
@@ -797,6 +888,7 @@ function gameLoop(now) {
         if(b.isPlayer) {
             enemyPool.items.forEach(e => {
                 if(e.active && Math.hypot(b.x - e.x, b.y - e.y) < e.radius + b.radius) {
+                    // 导弹穿透效果或者单次判定，这里做单次爆炸
                     b.active = false; e.takeDamage(b.dmg);
                     createExplosion(b.x, b.y, '#fff', 3);
                 }
@@ -829,7 +921,7 @@ function gameLoop(now) {
              updateHUD();
              if(player.hp <= 0) gameOver();
          } else {
-             player.takeHit(0); // 消耗护盾并提供无敌帧弹开
+             player.takeHit(0); 
              player.y += 50; 
          }
     }
