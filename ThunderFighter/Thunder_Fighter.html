@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>雷霆战机 - 赛博朋克</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="hud" id="hud">
+    <div>分数: <span id="scoreVal">0</span></div>
+    <div>难度等级: <span id="levelVal">1</span></div>
+    <div>生命值: <span id="hpVal">100</span>%</div>
+    <div style="color:var(--neon-yellow); margin-top:5px;">火力等级: <span id="powerVal">1</span></div>
+</div>
+
+<button class="btn" id="pauseBtn">暂停</button>
+<button class="btn" id="muteBtn">音效: 开</button>
+
+<div id="pauseMenu">
+    <h1>游戏暂停</h1>
+    <button class="btn menu-btn" id="resumeBtn">继续游戏</button>
+    <button class="btn menu-btn" id="restartBtnPause">重新开始</button>
+</div>
+
+<div id="gameOverMenu">
+    <h1>连接中断</h1>
+    <div style="font-size:24px; margin-bottom:20px; color:var(--neon-blue);">最终分数: <span id="finalScore">0</span></div>
+    <button class="btn menu-btn" id="restartBtn">重新启动</button>
+</div>
+
+<div id="warningScreen">警告！高能反应接近！</div>
+
+<div id="bossUI">
+    <div id="bossName">BOSS 01 - 毁灭核心</div>
+    <div class="health-bar-bg"><div class="health-bar-fill" id="bossHpFill"></div></div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script src="game.js"></script>
+</body>
+</html>
