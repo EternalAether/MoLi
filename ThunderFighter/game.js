@@ -108,7 +108,7 @@ let score = 0;
 let stageLevel = 1; 
 let bossMode = false;
 let bossDefeatedCount = 0;
-let nextBossScore = 10000;
+let nextBossScore = 5000;
 
 // 新增得分与保底机制变量
 let scoreMultiplier = 1.0; 
@@ -810,11 +810,11 @@ class Boss {
             bossMode = false; 
             bossDefeatedCount++;
             
-            if (bossDefeatedCount === 1) nextBossScore = 30000;
-            else if (bossDefeatedCount === 2) nextBossScore = 60000;
-            else if (bossDefeatedCount === 3) nextBossScore = 100000;
-            else if (bossDefeatedCount === 4) nextBossScore = 150000;
-            else nextBossScore += 100000;
+            if (bossDefeatedCount === 1) nextBossScore = 8000;
+            else if (bossDefeatedCount === 2) nextBossScore = 12000;
+            else if (bossDefeatedCount === 3) nextBossScore = 16000;
+            else if (bossDefeatedCount === 4) nextBossScore = 20000;
+            else nextBossScore += 6000;
 
             stageLevel = Math.min(6, bossDefeatedCount + 1);
 
@@ -879,7 +879,7 @@ function spawnEnemies(dt) {
         if(activeCount < maxEnemies) {
             let type = Math.floor(Math.random() * 6);
             
-            if (type === 2 && Math.random() > 0.1) {
+            if (type === 2 && Math.random() > 0.9) {
                 type = [0, 1, 3, 4, 5][Math.floor(Math.random() * 5)];
             }
             
@@ -897,11 +897,11 @@ function checkDifficulty() {
     // 更新难度与系数 (系数随关卡阶段提升20%)
     scoreMultiplier = 1 + (stageLevel - 1) * 0.2;
     
-    // 检查每 5000 分的保底机制
-    if(score - lastPowerupScoreThreshold >= 5000) {
+    // 检查每 2000 分的保底机制
+    if(score - lastPowerupScoreThreshold >= 2000) {
         guaranteedPowerup = true;
         // 向下取整获取里程碑
-        lastPowerupScoreThreshold = Math.floor(score / 5000) * 5000;
+        lastPowerupScoreThreshold = Math.floor(score / 2000) * 2000;
     }
 
     if(score >= nextBossScore && !bossMode) {
@@ -1051,7 +1051,7 @@ function gameOver() {
 
 function initGame() {
     score = 0; stageLevel = 1; bossMode = false; 
-    bossDefeatedCount = 0; nextBossScore = 10000;
+    bossDefeatedCount = 0; nextBossScore = 5000;
     scoreMultiplier = 1.0;
     lastPowerupScoreThreshold = 0;
     guaranteedPowerup = false;
