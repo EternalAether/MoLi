@@ -21,8 +21,9 @@ function initStars() {
             x: Math.random() * W,
             y: Math.random() * H,
             size: Math.random() * 2 + 0.5,
-            alpha: Math.random() * 0.8 + 0.2,
-            speed: Math.random() * 100 + 50 // 赋予向下的不同移动速度营造视差
+            // 降低星星初始透明度，使其显得更暗更深邃
+            alpha: Math.random() * 0.3 + 0.05, 
+            speed: Math.random() * 100 + 50 
         });
     }
 }
@@ -102,6 +103,7 @@ let stageLevel = 1;
 let bossMode = false;
 let bossDefeatedCount = 0;
 let nextBossScore = 10000;
+let damageFlashTimer = 0; // 屏幕受击红光闪烁计时器
 
 const keys = {};
 const mouse = { x: W/2, y: H/2, isDown: false };
@@ -120,22 +122,16 @@ window.addEventListener('touchstart', e => { mouse.x = e.touches[0].clientX; mou
 window.addEventListener('touchmove', e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
 window.addEventListener('touchend', () => { mouse.isDown = false; });
 
-// 修复：UI 按钮绑定
 document.getElementById('pauseBtn').onclick = () => {
-    if (gameState === 'playing') { 
-        gameState = 'paused'; 
-        document.getElementById('pauseMenu').style.display = 'flex'; 
-    }
+    if (gameState === 'playing') { gameState = 'paused'; document.getElementById('pauseMenu').style.display = 'flex'; }
 };
-
 document.getElementById('resumeBtn').onclick = () => {
     if (gameState === 'paused') {
         gameState = 'playing'; 
         document.getElementById('pauseMenu').style.display = 'none';
-        lastTime = performance.now(); // 极其重要：修复由于 dt 导致的时间跨越瞬间死亡问题
+        lastTime = performance.now(); 
     }
 };
-
 const restartGame = () => {
     initGame(); gameState = 'playing';
     document.getElementById('pauseMenu').style.display = 'none';
@@ -144,7 +140,6 @@ const restartGame = () => {
     document.getElementById('warningScreen').style.display = 'none';
     lastTime = performance.now();
 };
-
 document.getElementById('restartBtnPause').onclick = restartGame;
 document.getElementById('restartBtn').onclick = restartGame;
 document.getElementById('muteBtn').onclick = (e) => {
@@ -244,7 +239,7 @@ class Bullet {
                 let newAngle = currentAngle + Math.sign(diff) * Math.min(Math.abs(diff), turnSpeed);
                 
                 let speed = Math.hypot(this.vx, this.vy);
-                speed = Math.min(900, speed + 300 * dt); // 导弹加速
+                speed = Math.min(900, speed + 300 * dt); 
                 this.vx = Math.cos(newAngle) * speed;
                 this.vy = Math.sin(newAngle) * speed;
                 
@@ -284,6 +279,7 @@ class Player {
         this.wingmanAngle = 0;
         this.shieldActive = false;
         this.shieldTime = 0;
+        this.hitTimer = 0; // 受击闪白计时
     }
     update(dt) {
         let dx = 0, dy = 0;
@@ -309,11 +305,12 @@ class Player {
             if(p) p.spawn(this.x + (Math.random()-0.5)*10, this.y + 15, 0, 150, '#0ff', 0.2, 2);
         }
 
-        // 护盾逻辑
         if(this.shieldActive) {
             this.shieldTime -= dt;
             if(this.shieldTime <= 0) this.shieldActive = false;
         }
+
+        if(this.hitTimer > 0) this.hitTimer -= dt;
 
         // 自动射击
         this.shootCooldown -= dt;
@@ -325,7 +322,7 @@ class Player {
         if (this.power >= 7) {
             if (this.laserActiveTime > 0) {
                 this.laserActiveTime -= dt;
-                this.processLaserDamage(dt, this.x, 20, 150); // 主激光
+                this.processLaserDamage(dt, this.x, 20, 150); 
             } else {
                 this.laserCooldown -= dt;
                 if (this.laserCooldown <= 0) {
@@ -340,8 +337,8 @@ class Player {
         if (this.power >= 8) {
             if (this.wingLaserActiveTime > 0) {
                 this.wingLaserActiveTime -= dt;
-                this.processLaserDamage(dt, this.x - 50, 10, 80); // 左僚机小激光
-                this.processLaserDamage(dt, this.x + 50, 10, 80); // 右僚机小激光
+                this.processLaserDamage(dt, this.x - 50, 10, 80); 
+                this.processLaserDamage(dt, this.x + 50, 10, 80); 
             } else {
                 this.wingLaserCooldown -= dt;
                 if (this.wingLaserCooldown <= 0) {
@@ -359,7 +356,6 @@ class Player {
         const bSpeed = -600;
         const pX = this.x; const pY = this.y - 15;
         
-        // 直射弹道
         if (this.power === 1) {
             let b = bulletPool.get(); if(b) b.spawn(pX, pY, 0, bSpeed, '#0ff', true, 10);
         } else if (this.power === 2) {
@@ -371,21 +367,18 @@ class Player {
             let b3 = bulletPool.get(); if(b3) b3.spawn(pX + 12, pY, 0, bSpeed, '#0ff', true, 10 + this.power);
         }
 
-        // 4级及以上：左右两边扇形弹道
         if (this.power >= 4) {
             let a1 = -0.2, a2 = 0.2;
             let b4 = bulletPool.get(); if(b4) b4.spawn(pX - 5, pY, Math.sin(a1)*bSpeed*-1, Math.cos(a1)*bSpeed, '#0ff', true, 8 + this.power);
             let b5 = bulletPool.get(); if(b5) b5.spawn(pX + 5, pY, Math.sin(a2)*bSpeed*-1, Math.cos(a2)*bSpeed, '#0ff', true, 8 + this.power);
         }
 
-        // 5级及以上：再加左右两边扇形弹道
         if (this.power >= 5) {
             let a3 = -0.4, a4 = 0.4;
             let b6 = bulletPool.get(); if(b6) b6.spawn(pX - 10, pY, Math.sin(a3)*bSpeed*-1, Math.cos(a3)*bSpeed, '#0ff', true, 8 + this.power);
             let b7 = bulletPool.get(); if(b7) b7.spawn(pX + 10, pY, Math.sin(a4)*bSpeed*-1, Math.cos(a4)*bSpeed, '#0ff', true, 8 + this.power);
         }
 
-        // 6级及以上：第一对僚机 (直射)
         if (this.power >= 6) {
             let wx1 = this.x - 30; let wy1 = this.y + Math.sin(this.wingmanAngle)*5;
             let wx2 = this.x + 30; let wy2 = this.y + Math.cos(this.wingmanAngle)*5;
@@ -393,7 +386,6 @@ class Player {
             let b9 = bulletPool.get(); if(b9) b9.spawn(wx2, wy2 - 10, 0, bSpeed, '#0f0', true, 10);
         }
 
-        // 8级及以上：第二对僚机 (普通直射，激光在update中处理)
         if (this.power >= 8) {
             let wx3 = this.x - 50; let wy3 = this.y + Math.sin(this.wingmanAngle+Math.PI)*5 + 10;
             let wx4 = this.x + 50; let wy4 = this.y + Math.cos(this.wingmanAngle+Math.PI)*5 + 10;
@@ -401,7 +393,6 @@ class Player {
             let b11 = bulletPool.get(); if(b11) b11.spawn(wx4, wy4 - 10, 0, bSpeed, '#f0f', true, 10);
         }
 
-        // 9级：第三对僚机 (自动追踪)
         if (this.power >= 9) {
             let wx5 = this.x - 40; let wy5 = this.y + Math.sin(this.wingmanAngle*1.5)*5 + 25;
             let wx6 = this.x + 40; let wy6 = this.y + Math.cos(this.wingmanAngle*1.5)*5 + 25;
@@ -431,6 +422,8 @@ class Player {
         this.power = Math.max(1, this.power - 1);
         playSound('hit');
         createExplosion(this.x, this.y, '#f00', 5);
+        this.hitTimer = 0.1; // 玩家受击白闪
+        damageFlashTimer = 0.15; // 屏幕受击红闪
         if(this.hp <= 0) gameOver();
     }
     draw(ctx) {
@@ -447,9 +440,15 @@ class Player {
 
         ctx.shadowBlur = 15; ctx.shadowColor = '#0ff';
         
-        // 战机机身
-        ctx.fillStyle = '#113';
-        ctx.strokeStyle = '#0ff';
+        // 战机机身受击闪烁反馈
+        if (this.hitTimer > 0) {
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#fff';
+        } else {
+            ctx.fillStyle = '#113';
+            ctx.strokeStyle = '#0ff';
+        }
+        
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, -20); ctx.lineTo(15, 10); ctx.lineTo(0, 5); ctx.lineTo(-15, 10);
@@ -460,7 +459,7 @@ class Player {
         ctx.beginPath(); ctx.arc(0, -5, 3, 0, Math.PI*2); ctx.fill();
         ctx.restore();
 
-        // 第一对僚机
+        // 僚机渲染部分省略受击反馈保持常亮
         if (this.power >= 6) {
             ctx.save();
             ctx.shadowBlur = 10; ctx.shadowColor = '#0f0';
@@ -472,7 +471,6 @@ class Player {
             ctx.restore();
         }
 
-        // 第二对僚机
         if (this.power >= 8) {
             ctx.save();
             ctx.shadowBlur = 10; ctx.shadowColor = '#f0f';
@@ -482,7 +480,6 @@ class Player {
             ctx.beginPath(); ctx.arc(this.x - 50, this.y + yo3, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
             ctx.beginPath(); ctx.arc(this.x + 50, this.y + yo4, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
             
-            // 僚机小激光
             if(this.wingLaserActiveTime > 0) {
                 ctx.fillStyle = `rgba(255, 0, 255, ${Math.random()*0.5 + 0.3})`;
                 ctx.fillRect(this.x - 55, 0, 10, this.y + yo3);
@@ -491,7 +488,6 @@ class Player {
             ctx.restore();
         }
 
-        // 第三对僚机 (追踪)
         if (this.power >= 9) {
             ctx.save();
             ctx.shadowBlur = 10; ctx.shadowColor = '#f80';
@@ -515,7 +511,6 @@ class Player {
             ctx.restore();
         }
 
-        // 主激光
         if (this.power >= 7 && this.laserActiveTime > 0) {
             ctx.save();
             ctx.shadowBlur = 20; ctx.shadowColor = '#0ff';
@@ -583,6 +578,7 @@ class Enemy {
     spawn(type, x, y, hpMulti) {
         this.type = type; this.x = x; this.y = y; this.active = true;
         this.time = 0; this.shootTimer = Math.random();
+        this.hitTimer = 0; // 受击闪亮计时
         
         this.radius = type === 2 ? 18 : 15;
         this.hp = [20, 30, 80, 60, 40, 70][type] * hpMulti;
@@ -593,6 +589,7 @@ class Enemy {
     update(dt) {
         if(!this.active) return;
         this.time += dt;
+        if(this.hitTimer > 0) this.hitTimer -= dt;
         
         if(this.type === 1) this.vx = Math.sin(this.time * 3) * 100;
         else if(this.type === 2 || this.type === 3 || this.type === 5) {
@@ -633,10 +630,10 @@ class Enemy {
     takeDamage(amt) {
         if(!this.active) return;
         this.hp -= amt;
+        this.hitTimer = 0.05; // 击中表现
         playSound('hit');
         if(this.hp <= 0) {
             this.active = false;
-            // 基础得分 + 60
             score += (this.type + 1) * 10 + 60; 
             createExplosion(this.x, this.y, this.color, 10);
             if(this.type === 2) { 
@@ -648,9 +645,17 @@ class Enemy {
     draw(ctx) {
         if(!this.active) return;
         ctx.shadowBlur = 10; ctx.shadowColor = this.color;
-        ctx.strokeStyle = this.color; ctx.lineWidth = 2;
-        ctx.fillStyle = '#000';
         
+        // 受击变白效果
+        if (this.hitTimer > 0) {
+            ctx.strokeStyle = '#fff';
+            ctx.fillStyle = '#fff';
+        } else {
+            ctx.strokeStyle = this.color;
+            ctx.fillStyle = '#000';
+        }
+        
+        ctx.lineWidth = 2;
         ctx.save(); ctx.translate(this.x, this.y);
         ctx.beginPath();
         if(this.type === 2) { 
@@ -686,6 +691,7 @@ class Boss {
         this.x = W/2; this.y = -100;
         this.maxHp = 3000 + idx * 2000; this.hp = this.maxHp;
         this.state = 'enter'; this.time = 0;
+        this.hitTimer = 0; // Boss受击反馈计时
         
         document.getElementById('bossUI').style.display = 'block';
         document.getElementById('bossName').innerText = `BOSS 0${this.idx + 1} - ${bossNames[this.idx]}`;
@@ -697,6 +703,7 @@ class Boss {
     update(dt) {
         if(!this.active) return;
         this.time += dt;
+        if(this.hitTimer > 0) this.hitTimer -= dt;
         
         if(this.state === 'enter') {
             this.y += 50 * dt;
@@ -752,6 +759,7 @@ class Boss {
     takeDamage(amt) {
         if(this.state === 'enter' || !this.active) return;
         this.hp -= amt;
+        this.hitTimer = 0.05; // Boss受击反馈
         playSound('hit');
         this.updateHPBar();
         if(this.hp <= 0) {
@@ -780,7 +788,17 @@ class Boss {
         if(!this.active) return;
         ctx.save(); ctx.translate(this.x, this.y);
         ctx.shadowBlur = 20; ctx.shadowColor = '#f00';
-        ctx.fillStyle = '#100'; ctx.strokeStyle = '#f00'; ctx.lineWidth = 3;
+        
+        // 受击变白效果
+        if (this.hitTimer > 0) {
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#fff';
+        } else {
+            ctx.fillStyle = '#100'; 
+            ctx.strokeStyle = '#f00'; 
+        }
+        
+        ctx.lineWidth = 3;
         
         ctx.beginPath();
         if (this.idx === 0) {
@@ -821,7 +839,6 @@ function spawnEnemies(dt) {
         if(activeCount < maxEnemies) {
             let type = Math.floor(Math.random() * 6);
             
-            // 修复: 降低补给出现概率（不到 1%），且当原本随到类型2时，95%几率被替换掉
             if (type === 2 && Math.random() > 0.05) {
                 type = [0, 1, 3, 4, 5][Math.floor(Math.random() * 5)];
             }
@@ -870,7 +887,6 @@ function drawBackground(dt) {
     ctx.fillStyle = '#000'; 
     ctx.fillRect(0, 0, W, H);
     
-    // 实现背景的滚动
     ctx.fillStyle = '#fff';
     stars.forEach(star => {
         if(gameState === 'playing') {
@@ -896,11 +912,11 @@ function gameLoop(now) {
     if(dt > 0.1) dt = 0.1;
 
     if(gameState !== 'playing') {
-        drawBackground(0); // 暂停时背景停止流动
+        drawBackground(0); 
         return;
     }
 
-    drawBackground(dt); // 播放中背景随时间流动
+    drawBackground(dt); 
 
     player.update(dt);
     spawnEnemies(dt);
@@ -943,6 +959,8 @@ function gameLoop(now) {
     if(boss.active && Math.hypot(boss.x - player.x, boss.y - player.y) < 50 + player.radius) {
          if(!player.shieldActive) {
              player.hp -= 1 * dt * 60; 
+             player.hitTimer = 0.1;
+             damageFlashTimer = 0.1;
              updateHUD();
              if(player.hp <= 0) gameOver();
          } else {
@@ -954,6 +972,14 @@ function gameLoop(now) {
     pools.forEach(p => p.items.forEach(item => item.draw(ctx)));
     boss.draw(ctx);
     player.draw(ctx);
+    
+    // 渲染屏幕受击红闪蒙版
+    if(damageFlashTimer > 0) {
+        damageFlashTimer -= dt;
+        ctx.fillStyle = `rgba(255, 0, 0, ${damageFlashTimer * 3})`; 
+        ctx.fillRect(0, 0, W, H);
+    }
+    
     updateHUD();
 }
 
@@ -966,6 +992,7 @@ function gameOver() {
 function initGame() {
     score = 0; stageLevel = 1; bossMode = false; 
     bossDefeatedCount = 0; nextBossScore = 10000;
+    damageFlashTimer = 0;
     player.reset();
     [bulletPool, particlePool, itemPool, enemyPool].forEach(p => p.items.forEach(i => i.active = false));
     boss.active = false;
