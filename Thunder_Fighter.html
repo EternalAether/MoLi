@@ -10,6 +10,7 @@
             --neon-pink: #ff00ff;
             --neon-yellow: #fffb00;
             --neon-red: #ff3333;
+            --neon-green: #00ffaa;
             --bg-color: #050510;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; touch-action: none; }
@@ -25,19 +26,16 @@
         .btn { background: rgba(5,5,16,0.5); border: 2px solid var(--neon-blue); color: var(--neon-blue); padding: 10px 15px; font-family: inherit; font-size: 1rem; cursor: pointer; border-radius: 5px; text-shadow: 0 0 5px var(--neon-blue); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3) inset; outline: none; transition: 0.2s; pointer-events: auto; backdrop-filter: blur(2px); }
         .btn:active { background: var(--neon-blue); color: #000; }
         
-        /* 菜单弹窗 */
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 16, 0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; backdrop-filter: blur(4px); z-index: 10; }
         .overlay h1 { font-size: 3rem; margin-bottom: 20px; color: var(--neon-blue); text-shadow: 0 0 15px var(--neon-blue); text-align: center; }
         .overlay p { margin-bottom: 30px; font-size: 1.2rem; color: #fff; text-shadow: 0 0 5px #fff; text-align: center;}
         .menu-btns { display: flex; gap: 15px; flex-direction: column; }
         
-        /* Boss UI */
         #boss-ui { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 400px; text-align: center; display: none; z-index: 6; }
         #boss-ui h2 { color: var(--neon-red); font-size: 1.2rem; text-shadow: 0 0 10px var(--neon-red); margin-bottom: 5px; letter-spacing: 2px; }
         .hp-bar-bg { width: 100%; height: 15px; background: rgba(255,0,0,0.2); border: 2px solid var(--neon-red); border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(255,0,0,0.5); }
         #boss-hp-fill { width: 100%; height: 100%; background: var(--neon-red); transition: width 0.1s linear; box-shadow: 0 0 10px var(--neon-red); }
         
-        /* 危险提示 */
         #warning-msg { position: absolute; top: 40%; left: 0; width: 100%; text-align: center; color: var(--neon-red); font-size: 3rem; font-weight: bold; text-shadow: 0 0 20px var(--neon-red); opacity: 0; display: none; z-index: 7; letter-spacing: 5px; }
 
         .hidden { display: none !important; }
@@ -64,7 +62,6 @@
     
     <div id="warning-msg">⚠ 危险 ⚠</div>
 
-    <!-- 开始/结束 菜单 -->
     <div id="mainMenu" class="overlay">
         <h1 id="menuTitle">雷霆战机</h1>
         <p id="menuSubtitle">触摸并拖拽移动战机<br>自动射击</p>
@@ -73,7 +70,6 @@
         </div>
     </div>
 
-    <!-- 暂停 菜单 -->
     <div id="pauseMenu" class="overlay hidden">
         <h1>游戏暂停</h1>
         <div class="menu-btns">
@@ -84,7 +80,7 @@
 
 <script>
 /** =========================================================================
- *  AUDIO MANAGER (Web Audio API)
+ *  音频系统 (Web Audio API)
  *  ========================================================================= */
 class AudioManager {
     constructor() {
@@ -173,7 +169,7 @@ class AudioManager {
 const audio = new AudioManager();
 
 /** =========================================================================
- *  CORE ENGINE
+ *  核心引擎 & 工具
  *  ========================================================================= */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -205,7 +201,7 @@ const Utils = {
 };
 
 /** =========================================================================
- *  GAME ENTITIES
+ *  游戏实体
  *  ========================================================================= */
 class Particle {
     constructor(x, y, color, speed, size, life) {
@@ -277,6 +273,8 @@ class Player extends Ship {
         if(this.weaponLevel < this.maxWeaponLevel) {
             this.weaponLevel++;
             this.fireRate = Math.max(0.08, 0.15 - this.weaponLevel*0.01);
+        } else {
+            this.hp = Math.min(this.maxHp, this.hp + 20); // 满级后吃道具回血
         }
     }
     update(dt) {
@@ -293,7 +291,6 @@ class Player extends Ship {
             audio.playShoot();
             let c = this.color;
             let d = 10 + this.weaponLevel;
-            // Weapon patterns
             if(this.weaponLevel === 1) {
                 game.bullets.push(new Bullet(this.x, this.y-15, 0, -15, c, false, d));
             } else if(this.weaponLevel === 2) {
@@ -316,14 +313,9 @@ class Player extends Ship {
     }
     draw(ctx) {
         ctx.shadowBlur = 10; ctx.shadowColor = this.color;
-        
-        // Wings
         Utils.drawPoly(ctx, this.x, this.y, [[0,-5], [-20, 10], [-20, 15], [0, 5], [20, 15], [20, 10]], '#112', this.color);
-        // Fuselage
         Utils.drawPoly(ctx, this.x, this.y, [[0,-20], [-8, 5], [-5, 15], [5, 15], [8, 5]], '#224', this.color);
-        // Cockpit
         Utils.drawPoly(ctx, this.x, this.y, [[0,-10], [-3, 0], [0, 5], [3, 0]], '#fff', null);
-        
         ctx.shadowBlur = 0;
     }
 }
@@ -331,43 +323,69 @@ class Player extends Ship {
 class Enemy extends Ship {
     constructor(x, y, type) {
         let hp = 30, r = 15;
+        if (type === 1) hp = 50;
+        if (type === 2) hp = 80;
+        if (type === 3) hp = 150; // 道具机血厚一点
         super(x, y, hp, r);
-        this.type = type; // 0: Scout, 1: Fighter, 2: Heavy, 3: Elite
-        this.time = Utils.rand(0, 100);
         
-        if (type === 1) { this.hp = 60; this.r = 18; }
-        if (type === 2) { this.hp = 150; this.r = 25; }
-        if (type === 3) { this.hp = 250; this.r = 22; }
-        this.maxHp = this.hp;
+        this.type = type; 
+        /* 
+          0: S路线小兵 (飞过)
+          1: 直线/斜线快速 (飞过)
+          2: 停留炮台 (飞到指定Y停留放弹幕)
+          3: 道具携带机 (同2，掉落道具，绿色/金色)
+        */
+        this.startX = x;
+        this.targetY = Utils.rand(50, 200); // 针对类型 2, 3
+        this.time = Utils.rand(0, 100);
         this.fireTimer = Utils.rand(1, 2);
+        this.hasPowerUp = (type === 3);
+        
+        if (type === 2) this.r = 20;
+        if (type === 3) this.r = 22;
     }
     update(dt) {
         this.time += dt;
-        let speedY = [3, 4, 1.5, 2.5][this.type];
-        this.y += speedY * dt * 60;
         
-        if (this.type === 0) this.x += Math.sin(this.time * 2.5) * 3;
-        if (this.type === 1) this.x += Math.cos(this.time * 1.5) * 4;
-        if (this.type === 3) this.x += Math.sin(this.time * 3) * 5;
+        // 移动逻辑
+        if (this.type === 0) {
+            this.y += 2.5 * dt * 60;
+            this.x = this.startX + Math.sin(this.time * 2) * 50;
+        } else if (this.type === 1) {
+            this.y += 4 * dt * 60;
+        } else if (this.type === 2 || this.type === 3) {
+            if (this.y < this.targetY) {
+                this.y += 3 * dt * 60;
+            } else {
+                // 停留在目标位置，略微浮动
+                this.y = this.targetY + Math.sin(this.time * 1.5) * 10;
+                this.x = this.startX + Math.cos(this.time * 0.5) * 20;
+                
+                // 停留时才发射弹幕
+                this.fireTimer -= dt;
+                if (this.fireTimer <= 0) {
+                    this.fireTimer = this.type === 3 ? 1.0 : 1.5;
+                    audio.playEnemyShoot();
+                    
+                    if (this.type === 2) {
+                        for(let i=-1; i<=1; i+=2) game.bullets.push(new Bullet(this.x, this.y+this.r, i*2, 5, '#ff8800', true, 10));
+                    } else if (this.type === 3) {
+                        // 道具机弹幕更密集
+                        for(let i=-2; i<=2; i++) game.bullets.push(new Bullet(this.x, this.y+this.r, i*1.5, 4, '#00ffaa', true, 15));
+                    }
+                }
+            }
+        }
         
         if (this.y > height + 50) this.active = false;
 
-        this.fireTimer -= dt;
-        if (this.fireTimer <= 0) {
-            this.fireTimer = [1.5, 1.2, 2.0, 1.0][this.type];
-            audio.playEnemyShoot();
-            let c = '#ff3333';
-            if (this.type === 0) game.bullets.push(new Bullet(this.x, this.y+this.r, 0, 5, c, true, 10));
-            else if (this.type === 1) {
-                game.bullets.push(new Bullet(this.x-5, this.y+this.r, 0, 6, c, true, 10));
-                game.bullets.push(new Bullet(this.x+5, this.y+this.r, 0, 6, c, true, 10));
-            } else if (this.type === 2) {
-                for(let i=-2; i<=2; i++) game.bullets.push(new Bullet(this.x, this.y+this.r, i*1.5, 5, '#ff8800', true, 15));
-            } else if (this.type === 3) {
-                let dx = game.player ? game.player.x - this.x : 0;
-                let dy = game.player ? game.player.y - this.y : 1;
-                let angle = Math.atan2(dy, dx);
-                game.bullets.push(new Bullet(this.x, this.y+this.r, Math.cos(angle)*6, Math.sin(angle)*6, '#ff00ff', true, 20));
+        // 飞过型敌机的偶尔射击
+        if (this.type === 0 || this.type === 1) {
+            this.fireTimer -= dt;
+            if (this.fireTimer <= 0) {
+                this.fireTimer = 2.0;
+                audio.playEnemyShoot();
+                game.bullets.push(new Bullet(this.x, this.y+this.r, 0, 5, '#ff3333', true, 10));
             }
         }
     }
@@ -375,23 +393,26 @@ class Enemy extends Ship {
         ctx.shadowBlur = 8;
         let strokeC, fill1, fill2;
         if(this.type === 0) { strokeC='#ff3333'; fill1='#311'; fill2='#522'; }
-        else if(this.type === 1) { strokeC='#ff8800'; fill1='#321'; fill2='#531'; }
-        else if(this.type === 2) { strokeC='#ff00ff'; fill1='#313'; fill2='#525'; }
-        else { strokeC='#fffb00'; fill1='#331'; fill2='#651'; }
+        else if(this.type === 1) { strokeC='#ff00ff'; fill1='#313'; fill2='#525'; }
+        else if(this.type === 2) { strokeC='#ff8800'; fill1='#321'; fill2='#531'; }
+        else { strokeC='#00ffaa'; fill1='#132'; fill2='#254'; } // 道具机颜色
         
         ctx.shadowColor = strokeC; ctx.lineWidth = 1.5;
 
         if (this.type === 0) {
-            Utils.drawPoly(ctx, this.x, this.y, [[0,15], [-12,-5], [0,-10], [12,-5]], fill1, strokeC);
+            Utils.drawPoly(ctx, this.x, this.y, [[0,15], [-15,-5], [0,-10], [15,-5]], fill1, strokeC);
             Utils.drawPoly(ctx, this.x, this.y, [[0,5], [-5,-2], [0,-5], [5,-2]], fill2, null);
         } else if (this.type === 1) {
-            Utils.drawPoly(ctx, this.x, this.y, [[0,18], [-15,-10], [-5,-10], [0,-15], [5,-10], [15,-10]], fill1, strokeC);
-        } else if (this.type === 2) {
-            Utils.drawPoly(ctx, this.x, this.y, [[-20,0], [-25,-15], [-10,-10], [0,20], [10,-10], [25,-15], [20,0]], fill1, strokeC);
-            Utils.drawPoly(ctx, this.x, this.y, [[-10,-5], [0,10], [10,-5]], fill2, null);
-        } else if (this.type === 3) {
-            Utils.drawPoly(ctx, this.x, this.y, [[0,20], [-20,5], [-15,-15], [0,-10], [15,-15], [20,5]], fill1, strokeC);
-            ctx.beginPath(); ctx.arc(this.x, this.y+2, 5, 0, Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+            Utils.drawPoly(ctx, this.x, this.y, [[0,18], [-10,-10], [0,-15], [10,-10]], fill1, strokeC);
+        } else if (this.type === 2 || this.type === 3) {
+            // 炮台造型，比较厚重
+            let scale = this.type === 3 ? 1.2 : 1.0;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.scale(scale, scale);
+            Utils.drawPoly(ctx, 0, 0, [[-20,0], [-15,-15], [15,-15], [20,0], [10,15], [-10,15]], fill1, strokeC);
+            Utils.drawPoly(ctx, 0, 0, [[-10,0], [0,-8], [10,0], [0,8]], fill2, null);
+            ctx.restore();
         }
         ctx.shadowBlur = 0;
     }
@@ -400,8 +421,8 @@ class Enemy extends Ship {
 class Boss extends Ship {
     constructor(x, y, level) {
         super(x, y, 2000 + level*1500, 45);
-        this.level = level; // 1 to 5
-        this.state = 'enter'; // enter, fight
+        this.level = level; 
+        this.state = 'enter'; 
         this.time = 0;
         this.fireTimer = 0;
         document.getElementById('boss-ui').style.display = 'block';
@@ -412,46 +433,39 @@ class Boss extends Ship {
             this.y += 20 * dt;
             if (this.y > 100) this.state = 'fight';
         } else {
-            // Movement
             this.x = width/2 + Math.sin(this.time * (0.5 + this.level*0.1)) * (width/2 - 60);
             this.y = 100 + Math.sin(this.time * 0.8) * 30;
             
-            // Firing
             this.fireTimer -= dt;
             if (this.fireTimer <= 0) {
                 this.fireTimer = Math.max(0.1, 1.0 - this.level*0.15);
                 audio.playEnemyShoot();
                 
-                // Attack patterns based on time & level
                 let phase = Math.floor(this.time / 3) % 3;
                 if(phase === 0) {
-                    // Spread
                     for(let i=0; i<5+this.level; i++) {
                         let a = Math.PI/2 - 0.5 + (1.0/(4+this.level))*i;
                         game.bullets.push(new Bullet(this.x, this.y+this.r, Math.cos(a)*5, Math.sin(a)*5, '#ff0000', true, 15));
                     }
                 } else if (phase === 1) {
-                    // Circle
                     let cnt = 10 + this.level*2;
                     for(let i=0; i<cnt; i++) {
                         let a = (Math.PI*2/cnt)*i + this.time;
                         game.bullets.push(new Bullet(this.x, this.y, Math.cos(a)*4, Math.sin(a)*4, '#ff00ff', true, 15));
                     }
-                    this.fireTimer += 0.5; // pause slightly
+                    this.fireTimer += 0.5; 
                 } else {
-                    // Aimed stream
                     if(game.player) {
                         let dx = game.player.x - this.x;
                         let dy = game.player.y - this.y;
                         let a = Math.atan2(dy, dx) + Utils.rand(-0.2, 0.2);
                         game.bullets.push(new Bullet(this.x, this.y+this.r, Math.cos(a)*7, Math.sin(a)*7, '#fffb00', true, 20));
                     }
-                    this.fireTimer = 0.15; // fast stream
+                    this.fireTimer = 0.15; 
                 }
             }
         }
         
-        // Update Boss HP UI
         let pct = Math.max(0, this.hp / this.maxHp * 100);
         document.getElementById('boss-hp-fill').style.width = pct + '%';
     }
@@ -459,11 +473,9 @@ class Boss extends Ship {
         ctx.shadowBlur = 15; ctx.shadowColor = '#ff0000'; ctx.lineWidth = 2;
         let c1 = '#200', c2 = '#ff0000', c3 = '#500';
         
-        // Complex Boss Shape
         Utils.drawPoly(ctx, this.x, this.y, [[0,45], [-30,20], [-40,-10], [-50,-30], [-20,-20], [0,-30], [20,-20], [50,-30], [40,-10], [30,20]], c1, c2);
         Utils.drawPoly(ctx, this.x, this.y, [[0,20], [-15,0], [0,-10], [15,0]], c3, c2);
         
-        // Glowing core
         ctx.beginPath(); ctx.arc(this.x, this.y, 8 + Math.sin(this.time*5)*3, 0, Math.PI*2); 
         ctx.fillStyle = '#ffbbee'; ctx.fill();
         ctx.shadowBlur = 0;
@@ -474,6 +486,7 @@ class Boss extends Ship {
         game.bossActive = false;
         game.bossDefeated++;
         game.score += 5000 * this.level;
+        game.powerUpEnemiesSpawned = 0; // 重置道具机计数
     }
 }
 
@@ -483,9 +496,9 @@ class PowerUp {
     }
     update(dt) { this.time += dt; this.y += 2 * dt * 60; if (this.y > height + 20) this.active = false; }
     draw(ctx) {
-        ctx.shadowBlur = 15; ctx.shadowColor = '#00ff00'; ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 2;
+        ctx.shadowBlur = 15; ctx.shadowColor = '#00ffaa'; ctx.strokeStyle = '#00ffaa'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(this.x, this.y, this.r + Math.sin(this.time*10)*2, 0, Math.PI*2); ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Courier'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Courier'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('UP', this.x, this.y); ctx.shadowBlur = 0;
     }
 }
@@ -493,26 +506,29 @@ class PowerUp {
 class Star {
     constructor() { this.x = Math.random() * width; this.y = Math.random() * height; this.z = Math.random() * 2 + 0.1; this.alpha = Math.random(); }
     update(dt) {
-        this.y += this.z * (game.bossActive ? 150 : 50) * dt; // speed up stars during boss
+        this.y += this.z * (game.bossActive ? 150 : 50) * dt;
         if (this.y > height) { this.y = 0; this.x = Math.random() * width; }
     }
     draw(ctx) { ctx.fillStyle = `rgba(255,255,255,${this.alpha})`; ctx.fillRect(this.x, this.y, this.z, this.z * 2); }
 }
 
 /** =========================================================================
- *  GAME LOOP & LOGIC
+ *  游戏主循环 & 逻辑
  *  ========================================================================= */
 const game = {
-    state: 'menu', // menu, playing, paused, gameover
+    state: 'menu', 
     lastTime: 0,
     score: 0,
     difficulty: 1,
-    spawnTimer: 0,
+    
+    fodderTimer: 0,
+    waveDelay: 0,
+    powerUpEnemiesSpawned: 0,
+    
     bossActive: false,
     bossDefeated: 0,
     nextBossScore: 2000,
     warningPhase: false,
-    warningTimer: 0,
     
     player: null, boss: null,
     enemies: [], bullets: [], particles: [], powerups: [], stars: [],
@@ -529,6 +545,7 @@ const game = {
         this.enemies = []; this.bullets = []; this.particles = []; this.powerups = [];
         this.boss = null; this.bossActive = false; this.warningPhase = false;
         this.score = 0; this.difficulty = 1; this.bossDefeated = 0; this.nextBossScore = 2000;
+        this.powerUpEnemiesSpawned = 0;
         this.state = 'playing';
         
         document.getElementById('mainMenu').classList.add('hidden');
@@ -544,7 +561,7 @@ const game = {
             document.getElementById('pauseMenu').classList.remove('hidden');
         } else if(this.state === 'paused') {
             this.state = 'playing';
-            this.lastTime = performance.now(); // prevent jump
+            this.lastTime = performance.now(); 
             document.getElementById('pauseMenu').classList.add('hidden');
         }
     },
@@ -582,21 +599,40 @@ const game = {
         });
     },
 
-    spawnEnemy() {
-        if(this.bossActive || this.warningPhase) return;
+    spawnFodder() {
         let x = Utils.rand(30, width - 30);
-        let rand = Math.random();
-        let type = 0;
-        if(this.difficulty > 1.2 && rand < 0.3) type = 1;
-        if(this.difficulty > 1.5 && rand > 0.8) type = 2;
-        if(this.difficulty > 2.0 && rand > 0.9) type = 3;
+        let type = Math.random() < 0.5 ? 0 : 1;
         this.enemies.push(new Enemy(x, -30, type));
+    },
+
+    spawnStationaryWave() {
+        // 根据难度决定同时出现的敌机数量 (2~8 只)
+        let count = Math.min(8, Math.floor(Utils.rand(2 + this.difficulty, 4 + this.difficulty)));
+        let spacing = width / (count + 1);
+        
+        // 判断是否需要强制刷出道具机 (确保每轮boss前至少4只)
+        let needPowerUp = (this.powerUpEnemiesSpawned < 4 && Math.random() < 0.5) || 
+                          (this.nextBossScore - this.score < 1000 && this.powerUpEnemiesSpawned < 4);
+                          
+        for(let i=1; i<=count; i++) {
+            let x = spacing * i + Utils.rand(-10, 10);
+            let type = 2; // 普通停留炮台
+            if (needPowerUp && i === Math.floor(count/2)) {
+                type = 3; // 中间的一只变成道具机
+                this.powerUpEnemiesSpawned++;
+                needPowerUp = false;
+            } else if (Math.random() < 0.1) {
+                // 也有小概率自然生成道具机
+                type = 3;
+                this.powerUpEnemiesSpawned++;
+            }
+            this.enemies.push(new Enemy(x, -30, type));
+        }
     },
 
     triggerBossWarning() {
         this.warningPhase = true;
-        this.warningTimer = 3.0; // 3 seconds warning
-        this.enemies = []; // clear small enemies
+        this.enemies = []; // 清理小兵
         let wMsg = document.getElementById('warning-msg');
         wMsg.style.display = 'block';
         wMsg.style.opacity = '1';
@@ -628,17 +664,32 @@ const game = {
             return;
         }
 
-        // Progression logic
+        // 难度与Boss判定
         if(!this.bossActive && !this.warningPhase && this.score >= this.nextBossScore) {
             this.triggerBossWarning();
             this.nextBossScore += (5000 + this.bossDefeated * 3000);
         }
 
         this.difficulty = 1 + (this.score / 5000);
-        this.spawnTimer -= dt;
-        if (this.spawnTimer <= 0) {
-            this.spawnEnemy();
-            this.spawnTimer = Math.max(0.4, 2.0 - (this.difficulty * 0.3));
+
+        // 刷怪逻辑
+        if (!this.bossActive && !this.warningPhase) {
+            // 1. 散兵游勇 (Type 0, 1) 持续刷新
+            this.fodderTimer -= dt;
+            if (this.fodderTimer <= 0) {
+                this.spawnFodder();
+                this.fodderTimer = Math.max(0.6, 2.0 - (this.difficulty * 0.3));
+            }
+
+            // 2. 阵型炮台 (Type 2, 3) 波次刷新
+            let activeStationary = this.enemies.filter(e => e.type === 2 || e.type === 3).length;
+            if (activeStationary === 0) {
+                this.waveDelay -= dt;
+                if (this.waveDelay <= 0) {
+                    this.spawnStationaryWave();
+                    this.waveDelay = Utils.rand(1.5, 3.0); // 必须打完后，延迟一段时间才出下一波
+                }
+            }
         }
 
         this.stars.forEach(s => s.update(dt));
@@ -649,16 +700,18 @@ const game = {
         this.particles.forEach(p => p.update(dt));
         this.powerups.forEach(p => p.update(dt));
 
-        // Collisions
+        // 碰撞检测
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             let e = this.enemies[i];
             
+            // 玩家撞击敌机
             if (this.player && Utils.circleIntersect(this.player, e)) {
                 if(!(e instanceof Boss)) e.takeDamage(500);
                 this.player.takeDamage(20);
                 this.updateUI();
             }
 
+            // 子弹打中敌机
             for (let j = this.bullets.length - 1; j >= 0; j--) {
                 let b = this.bullets[j];
                 if (!b.isEnemy && b.active && Utils.circleIntersect(b, e)) {
@@ -667,15 +720,19 @@ const game = {
                     for(let k=0; k<2; k++) this.particles.push(new Particle(b.x, b.y, '#fff', 5, 2, 0.2));
 
                     if (!e.active && !(e instanceof Boss)) {
-                        this.score += [100, 200, 400, 600][e.type];
+                        this.score += [100, 150, 300, 500][e.type];
                         this.updateUI();
-                        if (Math.random() < 0.08) this.powerups.push(new PowerUp(e.x, e.y));
+                        // 道具机 100% 掉落道具，普通机极低概率掉落
+                        if (e.hasPowerUp || Math.random() < 0.02) {
+                            this.powerups.push(new PowerUp(e.x, e.y));
+                        }
                     }
                 }
             }
         }
 
         if (this.player && this.player.active) {
+            // 敌方子弹打中玩家
             for (let i = 0; i < this.bullets.length; i++) {
                 let b = this.bullets[i];
                 if (b.isEnemy && b.active && Utils.circleIntersect(b, this.player)) {
@@ -684,6 +741,7 @@ const game = {
                     this.updateUI();
                 }
             }
+            // 玩家吃道具
             for (let i = 0; i < this.powerups.length; i++) {
                 let p = this.powerups[i];
                 if (p.active && Utils.circleIntersect(p, this.player)) {
