@@ -46,6 +46,18 @@
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
     }
 
+    /* 震屏动画 */
+    @keyframes dropShake {
+      0% { transform: translateY(0); }
+      25% { transform: translateY(8px); }
+      50% { transform: translateY(-4px); }
+      75% { transform: translateY(2px); }
+      100% { transform: translateY(0); }
+    }
+    .shake {
+      animation: dropShake 0.15s ease-out;
+    }
+
     #ui-panel {
       display: flex;
       flex-direction: column;
@@ -561,6 +573,12 @@
         piece.pos.y++;
         score += 2;
       }
+      
+      // 触发震动效果
+      canvas.classList.remove('shake');
+      void canvas.offsetWidth; // 触发DOM重绘以重启CSS动画
+      canvas.classList.add('shake');
+
       scoreEl.innerText = score;
       lockPiece();
       dropCounter = 0;
