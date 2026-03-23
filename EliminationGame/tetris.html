@@ -169,8 +169,10 @@
       height: 380px;
     }
     
-    #overlay-settings .menu-wrapper {
-      height: 440px; /* 设置界面需要更高一点容纳滑块 */
+    /* 包含更多控件/按钮的菜单需要更高高度 */
+    #overlay-settings .menu-wrapper,
+    #overlay-pause .menu-wrapper {
+      height: 440px; 
     }
 
     .menu-header {
@@ -463,7 +465,7 @@
               <span class="status" id="grid-status">开</span>
             </div>
           </div>
-          <button id="menu-btn-settings">返回菜单</button>
+          <button id="menu-btn-settings">返 回</button> <!-- 修改为“返回” -->
         </div>
       </div>
     </div>
@@ -477,6 +479,7 @@
         <div class="menu-buttons">
           <button id="resume-btn" class="secondary">继续游戏</button>
           <button id="restart-btn" class="secondary">重新开始</button>
+          <button id="pause-settings-btn" class="secondary">设 置</button> <!-- 暂停界面的设置按钮 -->
           <button id="menu-btn-pause">返回菜单</button>
         </div>
       </div>
@@ -569,10 +572,11 @@
     let gameOver = false;
     let isPaused = false;
     let gameMode = 'normal'; 
+    let previousMenu = 'start'; // 用于记录是从哪里进入的设置 ('start' 或 'pause')
 
     // 设置状态：音量 (0~1)
     let bgmVolume = parseFloat(localStorage.getItem('tetrisBgmVol')) ?? 1.0;
-    if (isNaN(bgmVolume)) bgmVolume = 0.8;
+    if (isNaN(bgmVolume)) bgmVolume = 0.5;
     
     let sfxVolume = parseFloat(localStorage.getItem('tetrisSfxVol')) ?? 1.0;
     if (isNaN(sfxVolume)) sfxVolume = 1.0;
@@ -1256,12 +1260,34 @@
 
     bindClick('start-normal-btn', () => startGame('normal'));
     bindClick('start-easy-btn', () => startGame('easy'));
+    
+    // 主菜单进入设置
     bindClick('settings-btn', () => {
+      previousMenu = 'start';
       overlayStart.style.display = 'none';
       overlaySettings.style.display = 'flex';
       applySettings();
     });
-    
+
+    // 暂停菜单进入设置
+    bindClick('pause-settings-btn', () => {
+      previousMenu = 'pause';
+      overlayPause.style.display = 'none';
+      overlaySettings.style.display = 'flex';
+      applySettings();
+    });
+
+    // 设置界面的返回按钮逻辑
+    bindClick('menu-btn-settings', () => {
+      overlaySettings.style.display = 'none';
+      if (previousMenu === 'pause') {
+        overlayPause.style.display = 'flex';
+      } else {
+        overlayStart.style.display = 'flex';
+        draw(); 
+      }
+    });
+
     // 设置滑块监听
     const bgmSlider = document.getElementById('bgm-slider');
     bgmSlider.addEventListener('input', (e) => {
@@ -1289,12 +1315,6 @@
       gridEnabled = !gridEnabled;
       localStorage.setItem('tetrisGrid', gridEnabled);
       applySettings();
-    });
-
-    bindClick('menu-btn-settings', () => {
-      overlaySettings.style.display = 'none';
-      overlayStart.style.display = 'flex';
-      draw(); 
     });
 
     bindClick('resume-btn', resumeGame);
