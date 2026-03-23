@@ -62,26 +62,27 @@
     #ui-panel {
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 12px;
       width: 80px;
     }
 
     .info-box {
       background-color: var(--panel2);
-      padding: 10px 5px;
+      padding: 8px 4px;
       border-radius: 8px;
       text-align: center;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
     }
 
     .info-box span {
       display: block;
-      font-size: 18px;
+      font-size: 16px;
       color: var(--accent);
-      margin-top: 5px;
+      margin-top: 4px;
       text-shadow: 0 0 5px rgba(233, 69, 96, 0.5);
+      word-break: break-all;
     }
 
     #next-canvas {
@@ -101,6 +102,7 @@
       font-weight: bold;
       box-shadow: 0 4px 6px rgba(0,0,0,0.3);
       cursor: pointer;
+      margin-top: 5px;
     }
     .action-btn:active {
       transform: translateY(2px);
@@ -163,9 +165,61 @@
 
     .overlay h1 {
       color: var(--accent);
-      margin-bottom: 30px;
+      margin-bottom: 10px;
       font-size: 36px;
       text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+    }
+
+    .menu-high-score-text {
+      color: var(--text);
+      font-size: 18px;
+      margin-bottom: 30px;
+      font-weight: bold;
+      text-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+
+    .menu-high-score-text span {
+      color: var(--accent);
+      font-size: 22px;
+    }
+
+    /* 结算界面得分显示 */
+    .score-display {
+      text-align: center;
+      margin-bottom: 25px;
+      background: rgba(15, 52, 96, 0.6);
+      padding: 20px 30px;
+      border-radius: 12px;
+      border: 1px solid var(--panel2);
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+    }
+    
+    .score-display p {
+      margin: 0;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    
+    .score-display .final-score {
+      color: #fff;
+      font-size: 28px;
+    }
+
+    /* 新纪录呼吸闪烁特效 */
+    @keyframes pulse {
+      from { transform: scale(1); box-shadow: 0 0 5px #ffd700; }
+      to { transform: scale(1.1); box-shadow: 0 0 15px #ffd700; }
+    }
+    #new-record-badge {
+      display: none;
+      background: #ffd700;
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-left: 10px;
+      vertical-align: middle;
+      animation: pulse 0.8s infinite alternate;
     }
 
     .overlay button {
@@ -236,9 +290,9 @@
       #controls{ display: none; }
       #pc-hints{ display: block; }
       #game-area{ gap: 22px; padding: 22px; }
-      #ui-panel{ width: 110px; }
-      .info-box{ font-size: 15px; }
-      .info-box span{ font-size: 22px; }
+      #ui-panel{ width: 110px; gap: 15px; }
+      .info-box{ font-size: 15px; padding: 10px 5px;}
+      .info-box span{ font-size: 20px; }
     }
   </style>
 </head>
@@ -246,7 +300,7 @@
 
   <div id="game-area">
     <div id="pc-hints" aria-hidden="true">
-      <h3>PC 按键提示</h3>
+      <h3>按键提示</h3>
       <div class="hint-row"><span class="keycap">A</span><span>向左</span></div>
       <div class="hint-row"><span class="keycap">D</span><span>向右</span></div>
       <div class="hint-row"><span class="keycap">W</span><span>旋转</span></div>
@@ -259,6 +313,7 @@
 
     <div id="ui-panel">
       <canvas id="next-canvas"></canvas>
+      <div class="info-box">最高分 <span id="ui-high-score">0</span></div>
       <div class="info-box">分数 <span id="score">0</span></div>
       <div class="info-box">等级 <span id="level">1</span></div>
       <div class="info-box">行数 <span id="lines">0</span></div>
@@ -268,6 +323,7 @@
     <!-- 主菜单 -->
     <div id="overlay-start" class="overlay">
       <h1>俄罗斯方块</h1>
+      <p class="menu-high-score-text">最高分: <span id="menu-high-score">0</span></p>
       <button id="start-normal-btn">普通模式</button>
       <button id="start-easy-btn" class="secondary">简单模式</button>
     </div>
@@ -283,6 +339,9 @@
     <!-- 游戏结束菜单 -->
     <div id="overlay-gameover" class="overlay" style="display: none;">
       <h1>游戏结束</h1>
+      <div class="score-display">
+        <p class="final-score">得分: <span id="final-score-val">0</span><span id="new-record-badge">新纪录!</span></p>
+      </div>
       <button id="retry-btn">再来一局</button>
       <button id="menu-btn-gameover" class="secondary">返回菜单</button>
     </div>
@@ -310,6 +369,10 @@
     const scoreEl = document.getElementById('score');
     const levelEl = document.getElementById('level');
     const linesEl = document.getElementById('lines');
+    
+    // 最高分相关元素
+    const uiHighScoreEl = document.getElementById('ui-high-score');
+    const menuHighScoreEl = document.getElementById('menu-high-score');
 
     const overlayStart = document.getElementById('overlay-start');
     const overlayPause = document.getElementById('overlay-pause');
@@ -344,6 +407,7 @@
     let score = 0;
     let lines = 0;
     let level = 1;
+    let currentHighScore = 0;
 
     let dropCounter = 0;
     let dropInterval = 1000;
@@ -450,6 +514,13 @@
         notes.forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.3, 0.15), i * 40));
       }
     };
+    
+    // 获取和刷新本地最高分
+    function refreshHighScoreDisplay() {
+      currentHighScore = parseInt(localStorage.getItem('tetrisHighScore') || '0', 10);
+      menuHighScoreEl.innerText = currentHighScore;
+      uiHighScoreEl.innerText = currentHighScore;
+    }
 
     function resize() {
       const gameArea = document.getElementById('game-area');
@@ -567,6 +638,12 @@
       const points = [0, 40, 100, 300, 1200];
       score += points[linesCleared] * level;
       scoreEl.innerText = score;
+      
+      // 实时更新最高分UI
+      if (score > currentHighScore) {
+        currentHighScore = score;
+        uiHighScoreEl.innerText = currentHighScore;
+      }
 
       level = Math.floor(lines / 10) + 1;
       levelEl.innerText = level;
@@ -575,6 +652,21 @@
 
     function triggerGameOver() {
       gameOver = true;
+      
+      // 更新最终得分
+      document.getElementById('final-score-val').innerText = score;
+      
+      // 判断和保存本地最高分记录
+      let savedHighScore = parseInt(localStorage.getItem('tetrisHighScore') || '0', 10);
+      const newRecordBadge = document.getElementById('new-record-badge');
+      
+      if (score > savedHighScore && score > 0) {
+        localStorage.setItem('tetrisHighScore', score.toString());
+        newRecordBadge.style.display = 'inline-block'; // 播放新纪录动画
+      } else {
+        newRecordBadge.style.display = 'none';
+      }
+      
       overlayGameover.style.display = 'flex';
     }
 
@@ -625,6 +717,13 @@
       canvas.classList.add('shake');
 
       scoreEl.innerText = score;
+      
+      // 实时更新最高分UI
+      if (score > currentHighScore) {
+        currentHighScore = score;
+        uiHighScoreEl.innerText = currentHighScore;
+      }
+      
       lockPiece();
       dropCounter = 0;
     }
@@ -899,6 +998,7 @@
 
     function resetGame() {
       initAudio();
+      refreshHighScoreDisplay();
 
       board = createMatrix(COLS, ROWS);
       score = 0;
@@ -936,6 +1036,8 @@
       isPaused = true;
       if (reqAnimId) cancelAnimationFrame(reqAnimId);
       
+      refreshHighScoreDisplay(); // 保证菜单显示���最高分是最新的
+
       // 清空棋盘画布用于做主菜单背景
       board = createMatrix(COLS, ROWS);
       piece = null;
@@ -1075,6 +1177,7 @@
     });
 
     // 初始化显示主菜单
+    refreshHighScoreDisplay();
     board = createMatrix(COLS, ROWS);
     resize();
     draw(); 
