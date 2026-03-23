@@ -578,14 +578,17 @@
       }
     }
 
-    function playerDrop() {
+    // 新增 isManual 参数，区分自然下落(false)和手动按键下落(true)
+    function playerDrop(isManual = false) {
       if (isPaused || gameOver || isClearing || !piece) return;
       piece.pos.y++;
       if (checkCollision(piece.matrix, piece.pos)) {
         piece.pos.y--;
         lockPiece();
       } else {
-        SFX.move(); // 加入与左右移动相同的音效
+        if (isManual) {
+          SFX.move(); // 仅手动���键下落时播放音效
+        }
       }
       dropCounter = 0;
     }
@@ -861,7 +864,8 @@
       }
 
       dropCounter += deltaTime;
-      if (dropCounter > dropInterval) playerDrop();
+      // 自然时间推移触发的下落，传入 false，不播放音效
+      if (dropCounter > dropInterval) playerDrop(false);
 
       draw();
       reqAnimId = requestAnimationFrame(update);
@@ -976,7 +980,8 @@
 
     bindBtn('btn-left', () => playerMove(-1), true);
     bindBtn('btn-right', () => playerMove(1), true);
-    bindBtn('btn-down', () => playerDrop(), true);
+    // 手机点击下落按钮触发时传入 true 播放音效
+    bindBtn('btn-down', () => playerDrop(true), true);
     bindBtn('btn-rotate', () => playerRotate(), false);
     bindBtn('btn-hard', () => playerHardDrop(), false);
 
@@ -1032,7 +1037,8 @@
       if (k === 'a' || k === 'A') return playerMove(-1);
       if (k === 'd' || k === 'D') return playerMove(1);
       if (k === 'w' || k === 'W') return playerRotate();
-      if (k === 's' || k === 'S') return playerDrop();
+      // 键盘按下落键时传入 true，触发音效
+      if (k === 's' || k === 'S') return playerDrop(true);
       if (code === 'Space') return playerHardDrop();
 
       if (k === 'p' || k === 'P') {
@@ -1044,7 +1050,8 @@
       if (k === 'ArrowLeft') return playerMove(-1);
       if (k === 'ArrowRight') return playerMove(1);
       if (k === 'ArrowUp') return playerRotate();
-      if (k === 'ArrowDown') return playerDrop();
+      // 键盘按下落键时传入 true，触发音效
+      if (k === 'ArrowDown') return playerDrop(true);
     });
 
     // 初始化显示主菜单
