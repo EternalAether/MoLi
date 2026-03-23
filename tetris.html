@@ -39,6 +39,7 @@
       position: relative;
     }
 
+    /* 将原本硬编码在canvas上的宽高控制转移到JS中动态设置style */
     canvas {
       background-color: var(--panel);
       border: 2px solid var(--panel2);
@@ -88,7 +89,6 @@
       border: 2px solid var(--panel2);
       border-radius: 4px;
       width: 100%;
-      height: 80px;
     }
 
     .action-btn {
@@ -237,7 +237,6 @@
       #pc-hints{ display: block; }
       #game-area{ gap: 22px; padding: 22px; }
       #ui-panel{ width: 110px; }
-      #next-canvas{ height: 110px; }
       .info-box{ font-size: 15px; }
       .info-box span{ font-size: 22px; }
     }
@@ -469,11 +468,31 @@
 
       BLOCK_SIZE = Math.max(12, BLOCK_SIZE);
 
-      canvas.width = BLOCK_SIZE * COLS;
-      canvas.height = BLOCK_SIZE * ROWS;
+      // 高清屏支持 (High DPI / Retina)
+      const dpr = window.devicePixelRatio || 1;
 
-      nextCanvas.width = IS_PC ? 110 : 80;
-      nextCanvas.height = IS_PC ? 110 : 80;
+      // === 主棋盘缩放 ===
+      const logicalWidth = BLOCK_SIZE * COLS;
+      const logicalHeight = BLOCK_SIZE * ROWS;
+      
+      canvas.style.width = logicalWidth + 'px';
+      canvas.style.height = logicalHeight + 'px';
+      // 实际渲染像素翻倍
+      canvas.width = logicalWidth * dpr;
+      canvas.height = logicalHeight * dpr;
+      
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置矩阵
+      ctx.scale(dpr, dpr);
+
+      // === 下一个方块面板缩放 ===
+      const nextLogicalSize = IS_PC ? 110 : 80;
+      nextCanvas.style.width = nextLogicalSize + 'px';
+      nextCanvas.style.height = nextLogicalSize + 'px';
+      nextCanvas.width = nextLogicalSize * dpr;
+      nextCanvas.height = nextLogicalSize * dpr;
+
+      nextCtx.setTransform(1, 0, 0, 1, 0, 0);
+      nextCtx.scale(dpr, dpr);
 
       draw();
       drawNext();
@@ -578,7 +597,7 @@
       }
     }
 
-    // 新增 isManual 参数，区分自然下落(false)和手动按键下落(true)
+    // isManual 参数，区分自然下落(false)和手动按键下落(true)
     function playerDrop(isManual = false) {
       if (isPaused || gameOver || isClearing || !piece) return;
       piece.pos.y++;
@@ -587,7 +606,7 @@
         lockPiece();
       } else {
         if (isManual) {
-          SFX.move(); // 仅手动���键下落时播放音效
+          SFX.move(); // 仅手动按键下落时播放音效
         }
       }
       dropCounter = 0;
@@ -729,13 +748,14 @@
     }
 
     function drawNext() {
-      nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+      const logicalSize = IS_PC ? 110 : 80;
+      nextCtx.clearRect(0, 0, logicalSize, logicalSize);
       if (!nextPiece) return;
       const bSize = 20;
       const w = nextPiece.matrix[0].length * bSize;
       const h = nextPiece.matrix.length * bSize;
-      const offsetX = (nextCanvas.width - w) / 2 / bSize;
-      const offsetY = (nextCanvas.height - h) / 2 / bSize;
+      const offsetX = (logicalSize - w) / 2 / bSize;
+      const offsetY = (logicalSize - h) / 2 / bSize;
       drawMatrix(nextPiece.matrix, { x: offsetX, y: offsetY }, nextCtx, bSize);
     }
 
@@ -812,7 +832,7 @@
     }
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, COLS * BLOCK_SIZE, ROWS * BLOCK_SIZE);
       drawGrid();
 
       if (isClearing) {
