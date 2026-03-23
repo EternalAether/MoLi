@@ -465,7 +465,7 @@
               <span class="status" id="grid-status">开</span>
             </div>
           </div>
-          <button id="menu-btn-settings">返 回</button> <!-- 修改为“返回” -->
+          <button id="menu-btn-settings">返 回</button> 
         </div>
       </div>
     </div>
@@ -479,7 +479,7 @@
         <div class="menu-buttons">
           <button id="resume-btn" class="secondary">继续游戏</button>
           <button id="restart-btn" class="secondary">重新开始</button>
-          <button id="pause-settings-btn" class="secondary">设 置</button> <!-- 暂停界面的设置按钮 -->
+          <button id="pause-settings-btn" class="secondary">设 置</button> 
           <button id="menu-btn-pause">返回菜单</button>
         </div>
       </div>
@@ -572,11 +572,10 @@
     let gameOver = false;
     let isPaused = false;
     let gameMode = 'normal'; 
-    let previousMenu = 'start'; // 用于记录是从哪里进入的设置 ('start' 或 'pause')
+    let previousMenu = 'start'; 
 
-    // 设置状态：音量 (0~1)
     let bgmVolume = parseFloat(localStorage.getItem('tetrisBgmVol')) ?? 1.0;
-    if (isNaN(bgmVolume)) bgmVolume = 0.1;
+    if (isNaN(bgmVolume)) bgmVolume = 1.0;
     
     let sfxVolume = parseFloat(localStorage.getItem('tetrisSfxVol')) ?? 1.0;
     if (isNaN(sfxVolume)) sfxVolume = 1.0;
@@ -627,7 +626,8 @@
       osc.type = type;
       osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-      const vol = baseVol * sfxVolume;
+      // 使用指数级（平方）衰减音频，让较小的滑块值能够真正减小听感音量
+      const vol = baseVol * Math.pow(sfxVolume, 2); 
       gain.gain.setValueAtTime(vol, audioCtx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
@@ -648,7 +648,8 @@
       osc.frequency.setValueAtTime(400, now);
       osc.frequency.exponentialRampToValueAtTime(1200, now + 0.07);
       
-      const vol = 0.12 * sfxVolume;
+      // 使用指数级（平方）衰减音效音量
+      const vol = 0.12 * Math.pow(sfxVolume, 2);
       gain.gain.setValueAtTime(vol, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
       
@@ -678,7 +679,8 @@
     }
 
     function applySettings() {
-      bgmAudio.volume = bgmVolume;
+      // 音乐音量使用指数曲线 (0.1 的平方是 0.01)，彻底解决低档位仍然声大的问题
+      bgmAudio.volume = Math.pow(bgmVolume, 2);
       
       document.getElementById('bgm-slider').value = Math.round(bgmVolume * 100);
       document.getElementById('bgm-val').innerText = Math.round(bgmVolume * 100) + '%';
@@ -1292,7 +1294,8 @@
     const bgmSlider = document.getElementById('bgm-slider');
     bgmSlider.addEventListener('input', (e) => {
       bgmVolume = e.target.value / 100;
-      bgmAudio.volume = bgmVolume;
+      // 调节音量时应用平方曲线
+      bgmAudio.volume = Math.pow(bgmVolume, 2);
       document.getElementById('bgm-val').innerText = e.target.value + '%';
       localStorage.setItem('tetrisBgmVol', bgmVolume);
     });
