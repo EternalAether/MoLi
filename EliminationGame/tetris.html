@@ -403,9 +403,6 @@
   </style>
 </head>
 <body>
-  
-  <!-- 背景音乐: 去掉原有的src和loop属性 -->
-  <audio id="bgm"></audio>
 
   <div id="game-area">
     <div id="pc-hints" aria-hidden="true">
@@ -515,9 +512,8 @@
     const ctx = canvas.getContext('2d');
     const nextCanvas = document.getElementById('next-canvas');
     const nextCtx = nextCanvas.getContext('2d');
-    const bgmAudio = document.getElementById('bgm');
 
-    // 播放列表及当前索引
+    // ======= 音乐无缝循环(双缓冲)系统 =======
     const bgmPlaylist = [
       "Ripples in the Matrix.mp3",
       "Soothing Cubes.mp3",
@@ -527,12 +523,57 @@
     ];
     let currentBgmIndex = 0;
 
-    // 当一首歌播放完毕时，自动播放列表中的下一首
-    bgmAudio.addEventListener('ended', () => {
-      currentBgmIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
-      bgmAudio.src = bgmPlaylist[currentBgmIndex];
-      bgmAudio.play().catch(e => console.log("BGM auto-next prevented", e));
+    // 创建两个Audio对象来回交替使用
+    const audioPlayers = [new Audio(), new Audio()];
+    let activePlayerIndex = 0;
+
+    audioPlayers.forEach(player => {
+      player.preload = 'auto'; // 提前缓冲加载
+      player.addEventListener('ended', () => {
+        // 当前曲目播完时，交换正在工作的播放器
+        activePlayerIndex = 1 - activePlayerIndex;
+        let nextPlayer = audioPlayers[activePlayerIndex];
+        
+        currentBgmIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
+        
+        // 由于它是上一轮提前加载好的，瞬间开始播放不会卡顿
+        nextPlayer.currentTime = 0;
+        nextPlayer.play().catch(e => console.log("BGM auto-next prevented", e));
+        
+        // 刚播完的播放器变为空闲，立刻给它派任务去下载下下首歌
+        let standbyPlayer = audioPlayers[1 - activePlayerIndex];
+        let nextNextIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
+        standbyPlayer.src = bgmPlaylist[nextNextIndex];
+        standbyPlayer.load();
+      });
     });
+
+    // 获取当前正在前台工作的音频对象
+    function getActiveAudio() {
+      return audioPlayers[activePlayerIndex];
+    }
+
+    // 随机开始播放音乐并预加载
+    function startRandomBgm() {
+      audioPlayers[0].pause();
+      audioPlayers[1].pause();
+      
+      currentBgmIndex = Math.floor(Math.random() * bgmPlaylist.length);
+      activePlayerIndex = 0;
+      
+      let active = audioPlayers[0];
+      let standby = audioPlayers[1];
+      
+      active.src = bgmPlaylist[currentBgmIndex];
+      active.currentTime = 0;
+      active.play().catch(e => console.log("BGM autoplay prevented", e));
+      
+      // 马上准备下一首给另一个播放器加载
+      let nextIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
+      standby.src = bgmPlaylist[nextIndex];
+      standby.load();
+    }
+    // ==========================================
 
     const COLS = 10;
     const ROWS = 20;
@@ -694,7 +735,9 @@
     }
 
     function applySettings() {
-      bgmAudio.volume = Math.pow(bgmVolume, 2);
+      const vol = Math.pow(bgmVolume, 2);
+      // 更新两个缓冲播放器的音量
+      audioPlayers.forEach(p => p.volume = vol);
       
       document.getElementById('bgm-slider').value = Math.round(bgmVolume * 100);
       document.getElementById('bgm-val').innerText = Math.round(bgmVolume * 100) + '%';
@@ -834,7 +877,7 @@
 
     function triggerGameOver() {
       gameOver = true;
-      bgmAudio.pause(); // 死亡停止BGM
+      getActiveAudio().pause(); // 死亡停止当前BGM
       
       document.getElementById('final-score-val').innerText = score;
       let savedHighScore = parseInt(localStorage.getItem('tetrisHighScore') || '0', 10);
@@ -1154,11 +1197,8 @@
       initAudio();
       refreshHighScoreDisplay();
 
-      // 开局随机挑选一首歌播放
-      currentBgmIndex = Math.floor(Math.random() * bgmPlaylist.length);
-      bgmAudio.src = bgmPlaylist[currentBgmIndex];
-      bgmAudio.currentTime = 0;
-      bgmAudio.play().catch(e => console.log("BGM autoplay prevented", e));
+      // 开局随机挑选一首歌并预加载双缓冲播放器
+      startRandomBgm();
 
       board = createMatrix(COLS, ROWS);
       score = 0;
@@ -1197,7 +1237,7 @@
       isPaused = true;
       if (reqAnimId) cancelAnimationFrame(reqAnimId);
       
-      bgmAudio.pause(); // 回到主菜单停止BGM
+      getActiveAudio().pause(); // 回到主菜单停止当前BGM
       
       refreshHighScoreDisplay();
       board = createMatrix(COLS, ROWS);
@@ -1213,7 +1253,7 @@
     function togglePause() {
       if (gameOver || overlayStart.style.display !== 'none' || overlaySettings.style.display !== 'none') return;
       isPaused = true;
-      bgmAudio.pause(); // 暂停BGM
+      getActiveAudio().pause(); // 暂停当前BGM
       overlayPause.style.display = 'flex';
       if (reqAnimId) cancelAnimationFrame(reqAnimId);
     }
@@ -1221,7 +1261,7 @@
     function resumeGame() {
       initAudio();
       isPaused = false;
-      bgmAudio.play().catch(e => console.log(e)); // 恢复BGM
+      getActiveAudio().play().catch(e => console.log(e)); // 恢复BGM
       overlayPause.style.display = 'none';
       lastTime = performance.now();
       update();
@@ -1310,8 +1350,9 @@
     const bgmSlider = document.getElementById('bgm-slider');
     bgmSlider.addEventListener('input', (e) => {
       bgmVolume = e.target.value / 100;
-      // 调节音量时应用平方曲线
-      bgmAudio.volume = Math.pow(bgmVolume, 2);
+      // 调节音量时应用平方曲线(双播放器同步调整)
+      const vol = Math.pow(bgmVolume, 2);
+      audioPlayers.forEach(p => p.volume = vol);
       document.getElementById('bgm-val').innerText = e.target.value + '%';
       localStorage.setItem('tetrisBgmVol', bgmVolume);
     });
