@@ -165,7 +165,6 @@
       <button class="action-btn" id="pause-btn">⏸ 暂停</button>
     </div>
 
-    <!-- 各种菜单遮罩层统一标识 -->
     <div id="overlayStart" class="overlay">
       <div class="menu-wrapper">
         <div class="menu-header"><h1>俄罗斯方块</h1><p class="menu-high-score-text">最高分: <span id="menu-high-score">0</span></p></div>
@@ -221,7 +220,7 @@
   </div>
 
   <script>
-    // ======= DOM 缓存机制 (提升查询性能) =======
+    // ======= DOM 缓存机制 =======
     const els = {
       canvas: document.getElementById('board'), nextCanvas: document.getElementById('next-canvas'),
       score: document.getElementById('score'), level: document.getElementById('level'), lines: document.getElementById('lines'),
@@ -255,41 +254,64 @@
     let isClearing = false, clearAnim = { rows: [], start: 0, phase: 0 };
     let bag = [];
 
-    // 设置状态及预加载相关
     let bgmVolume = +(localStorage.getItem('tetrisBgmVol') ?? 1);
     let sfxVolume = +(localStorage.getItem('tetrisSfxVol') ?? 1);
     let gridEnabled = localStorage.getItem('tetrisGrid') !== 'false';
     const IS_PC = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-    // ======= 离屏缓存 (大幅提升性能) =======
     const blockCaches = [], ghostCaches = [];
     let singleGhostCache = null;
 
-    // ======= 音乐无缝循环(双缓冲)系统 =======
+    // ======= 极速零延迟音乐系统（Blob 内存预加载 + 双重缓冲） =======
     const bgmPlaylist = ["Ripples in the Matrix.mp3", "Soothing Cubes.mp3", "Dream of Blocks.mp3", "Critical Mass.mp3", "Rhythm of Lines.mp3"];
+    const cachedUrls = [...bgmPlaylist]; // 存储真实的或被内存化的链接
     let currentBgmIndex = 0, activePlayerIndex = 0;
     const audioPlayers = [new Audio(), new Audio()];
-    
+
+    // 静默把网络mp3下载为Blob，后续提取播放实现0网络请求绝对无缝
+    const prefetchBgm = index => {
+      if (cachedUrls[index].startsWith('blob:')) return Promise.resolve(cachedUrls[index]);
+      return fetch(bgmPlaylist[index]).then(r => r.blob()).then(blob => {
+        return cachedUrls[index] = URL.createObjectURL(blob);
+      }).catch(() => cachedUrls[index]); // 失败则保留原URL
+    };
+
     audioPlayers.forEach(p => {
       p.preload = 'auto';
       p.addEventListener('ended', () => {
         activePlayerIndex ^= 1;
         currentBgmIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
+        
+        // 此刻的下一首歌已经被100%下载为Blob在内存里，无缝触发
         const next = audioPlayers[activePlayerIndex];
-        next.currentTime = 0; next.play().catch(e => console.log(e));
+        next.currentTime = 0; 
+        next.play().catch(e => console.log(e));
+        
+        // 播这首歌的同时，去预加载下下首
+        const nextNextIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
         const standby = audioPlayers[activePlayerIndex ^ 1];
-        standby.src = bgmPlaylist[(currentBgmIndex + 1) % bgmPlaylist.length]; standby.load();
+        prefetchBgm(nextNextIndex).then(url => {
+          standby.src = url; standby.load();
+        });
       });
     });
 
     const getActiveAudio = () => audioPlayers[activePlayerIndex];
+
     function startRandomBgm() {
       audioPlayers.forEach(p => p.pause());
       currentBgmIndex = Math.floor(Math.random() * bgmPlaylist.length);
       activePlayerIndex = 0;
-      audioPlayers[0].src = bgmPlaylist[currentBgmIndex]; audioPlayers[0].currentTime = 0;
-      audioPlayers[0].play().catch(e => console.log(e));
-      audioPlayers[1].src = bgmPlaylist[(currentBgmIndex + 1) % bgmPlaylist.length]; audioPlayers[1].load();
+      
+      const active = audioPlayers[0], standby = audioPlayers[1];
+      // 刚开局不等待，有啥播啥（如果是第一次玩就网络推流播放）
+      active.src = cachedUrls[currentBgmIndex]; active.currentTime = 0;
+      active.play().catch(e => console.log(e));
+      
+      // 让后台静默预先把当前和下一首载入 Blob 内存，确保以后循环时绝对无卡顿
+      const nextIndex = (currentBgmIndex + 1) % bgmPlaylist.length;
+      prefetchBgm(nextIndex).then(url => { standby.src = url; standby.load(); });
+      prefetchBgm(currentBgmIndex); 
     }
 
     // ===== 音效 =====
@@ -332,7 +354,6 @@
       els.toggleGridRow.classList.toggle('off', !gridEnabled); els.gridStatus.innerText = gridEnabled ? '开' : '关';
     }
 
-    // 绘制高清基础方块（仅做离屏生成用，不用作帧循环绘制）
     function draw3DBlock(context, x, y, size, color, alpha = 1, scale = 1) {
       const padding = 1, actSize = (size - padding * 2) * scale, edge = Math.max(2, actSize * 0.15);
       const px = x + padding + ((size - padding * 2) - actSize) / 2, py = y + padding + ((size - padding * 2) - actSize) / 2;
@@ -396,10 +417,17 @@
       rows.sort((a,b)=>a-b).forEach(y => { board.splice(y, 1); board.unshift(new Array(COLS).fill(0)); });
     }
 
+    // 修复破纪录判定：和本地持久化真实记录对比
     function triggerGameOver() {
       gameOver = true; getActiveAudio().pause(); els.finalScore.innerText = score;
-      if (score > currentHighScore && score > 0) { localStorage.setItem('tetrisHighScore', score); els.recordBadge.style.display = 'inline-block'; } 
-      else els.recordBadge.style.display = 'none';
+      
+      const savedHighScore = +(localStorage.getItem('tetrisHighScore') || 0);
+      if (score > savedHighScore && score > 0) { 
+        localStorage.setItem('tetrisHighScore', score); 
+        els.recordBadge.style.display = 'inline-block'; 
+      } else {
+        els.recordBadge.style.display = 'none';
+      }
       showOverlay('overlayGameover');
     }
 
@@ -426,7 +454,9 @@
       if (isPaused || gameOver || isClearing || !piece) return;
       while (!checkCollision(piece.matrix, { ...piece.pos, y: piece.pos.y + 1 })) { piece.pos.y++; score += 2; }
       els.canvas.classList.remove('shake'); void els.canvas.offsetWidth; els.canvas.classList.add('shake');
-      if (score > currentHighScore) els.uiHighScore.innerText = currentHighScore = score;
+      
+      if (score > currentHighScore) els.uiHighScore.innerText = currentHighScore = score; // 实时更新UI
+      
       updateUI(); lockPiece(); dropCounter = 0;
     }
 
@@ -508,7 +538,7 @@
           if (count) {
             lines += count; score += [0, 40, 100, 300, 1200][count] * level; level = (lines / 10 | 0) + 1;
             dropInterval = Math.max(100, 1000 - (level - 1) * 100);
-            if (score > currentHighScore) els.uiHighScore.innerText = currentHighScore = score; updateUI();
+            if (score > currentHighScore) els.uiHighScore.innerText = currentHighScore = score; updateUI(); // 实时更新UI
           }
           isClearing = false; piece = nextPiece; nextPiece = spawnPiece(); drawNext();
           if (checkCollision(piece.matrix, piece.pos)) triggerGameOver();
