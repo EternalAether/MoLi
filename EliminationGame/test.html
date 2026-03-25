@@ -292,18 +292,28 @@
 
     function draw3DBlock(c, x, y, s, color, alpha = 1, scale = 1) {
       const p = 1, a = (s - p * 2) * scale, px = x + p + (s - p * 2 - a) / 2, py = y + p + (s - p * 2 - a) / 2, e = Math.max(2, a * 0.15);
-      c.save(); c.globalAlpha = alpha; c.fillStyle = color; c.fillRect(px, py, a, a);
-      const poly = (f, pts) => { c.fillStyle = f; c.beginPath(); c.moveTo(...pts[0]); pts.slice(1).forEach(pt => c.lineTo(...pt)); c.fill(); };
+      c.save(); 
+      c.globalAlpha = alpha; 
       
       if (currentTheme === 'neon') {
-        poly('rgba(255,255,255,0.5)', [[px,py], [px+a,py], [px+a-e,py+e], [px+e,py+e]]);
-        poly('rgba(255,255,255,0.2)', [[px,py], [px+e,py+e], [px+e,py+a-e], [px,py+a]]);
-        poly('rgba(0,0,0,0.3)', [[px+a,py], [px+a,py+a], [px+a-e,py+a-e], [px+a-e,py+e]]);
-        poly('rgba(0,0,0,0.5)', [[px,py+a], [px+a,py+a], [px+a-e,py+a-e], [px+e,py+a-e]]);
-        c.fillStyle = 'rgba(255,255,255,0.3)'; c.fillRect(px+e, py+e, a-e*2, (a-e*2)*0.25);
-        c.fillStyle = 'rgba(0,0,0,0.15)'; c.fillRect(px+e, py+a-e-(a-e*2)*0.25, a-e*2, (a-e*2)*0.25);
-        c.strokeStyle = 'rgba(0,0,0,0.7)'; c.lineWidth = 1; c.strokeRect(px, py, a, a);
+        // 霓虹主题：只画发光边框，不填充内���
+        c.strokeStyle = color;
+        c.lineWidth = Math.max(2, a * 0.1); // 根据方块大小自适应线宽
+        c.shadowColor = color;
+        c.shadowBlur = 10; // 外发光效果
+        // 绘制主颜色边框
+        c.strokeRect(px + 1, py + 1, a - 2, a - 2);
+        
+        // 绘制内部白色高光描边，增强霓虹灯管的视觉效果
+        c.shadowBlur = 0;
+        c.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        c.lineWidth = 1;
+        c.strokeRect(px + 2, py + 2, a - 4, a - 4);
       } else {
+        // 经典主题：保持原有的3D质感和填充
+        c.fillStyle = color; 
+        c.fillRect(px, py, a, a);
+        const poly = (f, pts) => { c.fillStyle = f; c.beginPath(); c.moveTo(...pts[0]); pts.slice(1).forEach(pt => c.lineTo(...pt)); c.fill(); };
         poly('rgba(255,255,255,0.4)', [[px,py], [px+a,py], [px+a-e,py+e], [px+e,py+e]]);
         poly('rgba(255,255,255,0.2)', [[px,py], [px+e,py+e], [px+e,py+a-e], [px,py+a]]);
         poly('rgba(0,0,0,0.2)', [[px+a,py], [px+a,py+a], [px+a-e,py+a-e], [px+a-e,py+e]]);
