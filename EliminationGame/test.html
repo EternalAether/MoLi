@@ -14,6 +14,7 @@
       --btn-bg: var(--accent); --btn-border: none; --btn-shadow: 0 4px 6px rgba(0,0,0,0.3);
       --title-shadow: 0 0 10px rgba(233, 69, 96, 0.5); --title-color: var(--accent);
       --hint-bg: rgba(15, 52, 96, 0.35); --hint-border: rgba(15, 52, 96, 0.9);
+      --font-base: 'Segoe UI', Tahoma, sans-serif;
     }
     
     /* 霓虹赛博朋克主题变量 */
@@ -38,13 +39,71 @@
       --hint-bg: rgba(255,255,255,0.9); --hint-border: #fae3d9;
     }
 
-    body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; touch-action: none; overflow: hidden; display: flex; flex-direction: column; height: 100vh; width: 100vw; transition: background 0.3s;}
+    /* 水墨中国风主题变量 */
+    body[data-theme="ink"] {
+      --bg: #f4eedb; 
+      --panel: rgba(244, 238, 219, 0.6); 
+      --panel2: rgba(139, 90, 43, 0.1); 
+      --accent: #c02c38; 
+      --grid: rgba(139, 90, 43, 0.3); 
+      --text: #2c2c2c;
+      --canvas-bg: rgba(255, 253, 246, 0.7); 
+      --canvas-border: #8b5a2b; 
+      --canvas-shadow: 0 5px 25px rgba(0, 0, 0, 0.05);
+      --info-color: #111; --info-shadow: none;
+      --menu-bg: rgba(244, 238, 219, 0.85); 
+      --menu-wrap-bg: #fdfaf2; 
+      --menu-wrap-border: 1px solid #8b5a2b; 
+      --menu-wrap-shadow: 0 15px 35px rgba(0, 0, 0, 0.15); 
+      --menu-backdrop: blur(4px);
+      --btn-bg: transparent; --btn-border: 1px solid #8b5a2b; --btn-shadow: none;
+      --title-shadow: none; --title-color: #2c2c2c;
+      --hint-bg: rgba(253, 250, 242, 0.95); --hint-border: #c9b89f;
+      --font-base: 'STKaiti', 'KaiTi', 'SimSun', 'Georgia', serif; 
+    }
+
+    body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font-base); touch-action: none; overflow: hidden; display: flex; flex-direction: column; height: 100vh; width: 100vw; transition: background 0.5s;}
+    button, input, select { font-family: var(--font-base); transition: 0.3s; }
+    
     body[data-theme="neon"] { background: radial-gradient(circle at 50% 30%, #1f2235 0%, var(--bg) 100%); }
     body[data-theme="neon"]::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 1px, transparent 1px, transparent 2px); pointer-events: none; z-index: 999; opacity: 0.6; }
     body[data-theme="sunny"] { background: linear-gradient(135deg, #fdf6e3 0%, #fae3d9 100%); }
 
+    /* 水墨背景肌理 */
+    .ink-overlay { display: none; position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+    body[data-theme="ink"] .ink-overlay { 
+      display: block; 
+      background: radial-gradient(circle at center, transparent 30%, rgba(139, 90, 43, 0.1) 100%);
+    }
+    body[data-theme="ink"] .ink-overlay::after { 
+      content: ""; position: absolute; inset: 0;
+      background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.12"/></svg>');
+      mix-blend-mode: multiply; opacity: 0.7; pointer-events: none;
+    }
+
     #game-area { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; box-sizing: border-box; gap: 15px; position: relative; z-index: 1; }
-    canvas { background: var(--canvas-bg); backdrop-filter: blur(8px); border: 2px solid var(--canvas-border); border-radius: 4px; box-shadow: var(--canvas-shadow); transition: 0.3s;}
+    
+    /* 多图层容器优化：将样式赋给容器，使 Canvas 本身变为透明图层 */
+    #canvas-container {
+      position: relative;
+      background: var(--canvas-bg); 
+      backdrop-filter: blur(8px); 
+      border: 2px solid var(--canvas-border); 
+      border-radius: 4px; 
+      box-shadow: var(--canvas-shadow); 
+      transition: 0.3s;
+      overflow: hidden;
+    }
+    body[data-theme="ink"] #canvas-container { border-radius: 0; box-shadow: inset 0 0 10px rgba(139, 90, 43, 0.1); border-width: 1px; }
+    
+    #canvas-container canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: transparent; border: none; box-shadow: none;
+    }
+    #bg-canvas { z-index: 1; }
+    #board { z-index: 2; }
+    #fx-canvas { z-index: 3; pointer-events: none; }
+
     @keyframes dropShake { 0%, 100% { transform: translateY(0); } 25% { transform: translateY(8px); } 50% { transform: translateY(-4px); } 75% { transform: translateY(2px); } }
     .shake { animation: dropShake 0.15s ease-out; }
     
@@ -52,103 +111,134 @@
     .info-box { background: var(--panel); backdrop-filter: blur(5px); padding: 8px 4px; border-radius: 8px; text-align: center; font-size: 13px; font-weight: bold; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); transition: 0.3s;}
     body[data-theme="neon"] .info-box { border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,240,255,0.05); }
     body[data-theme="sunny"] .info-box { border: 1px solid #fae3d9; box-shadow: 0 4px 10px rgba(0,0,0,0.05); color: #5c4f4f;}
+    body[data-theme="ink"] .info-box { background: #fdfaf2; border: 1px solid #8b5a2b; box-shadow: none; border-radius: 2px; font-weight: normal; color: #555;}
     .info-box span { display: block; font-size: 16px; color: var(--info-color); margin-top: 4px; text-shadow: var(--info-shadow); word-break: break-all; transition: 0.3s; }
+    body[data-theme="ink"] .info-box span { font-weight: bold; }
     #next-canvas { width: 100%; border-radius: 4px; }
     
-    .action-btn { background: var(--btn-bg); color: white; border: var(--btn-border); border-radius: 8px; padding: 10px 5px; font-size: 14px; font-weight: bold; box-shadow: var(--btn-shadow); cursor: pointer; margin-top: 5px; transition: transform 0.1s, filter 0.2s, background 0.3s; }
+    .action-btn { background: var(--btn-bg); color: white; border: var(--btn-border); border-radius: 8px; padding: 10px 5px; font-size: 14px; font-weight: bold; box-shadow: var(--btn-shadow); cursor: pointer; margin-top: 5px; transition: transform 0.1s, filter 0.2s, background 0.3s, color 0.3s; }
     body[data-theme="sunny"] .action-btn { color: #fff; }
+    body[data-theme="ink"] .action-btn { background: #fdfaf2; color: var(--accent); border: 1px solid var(--accent); border-radius: 3px 8px 4px 6px; font-weight: bold; letter-spacing: 2px; }
     .action-btn:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.3); }
+    body[data-theme="ink"] .action-btn:active { background: var(--accent); color: #fff; box-shadow: none;}
     .action-btn:hover { filter: brightness(1.1); }
     
     #controls { height: 180px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px; padding: 15px; background: var(--panel); backdrop-filter: blur(10px); border-top: 2px solid var(--panel2); padding-bottom: max(15px, env(safe-area-inset-bottom)); z-index: 2; transition: 0.3s;}
     body[data-theme="neon"] #controls { border-top: 1px solid rgba(0,240,255,0.2); }
     body[data-theme="sunny"] #controls { background: rgba(255,255,255,0.8); border-top: 2px solid #fae3d9; }
+    body[data-theme="ink"] #controls { background: rgba(244,238,219,0.85); border-top: 1px solid #8b5a2b; }
     
     .btn { background: var(--panel2); border: none; border-radius: 12px; color: var(--text); font-size: 24px; font-weight: bold; display: flex; justify-content: center; align-items: center; user-select: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.1s, background 0.2s, color 0.2s; cursor: pointer; }
     body[data-theme="neon"] .btn { border: 1px solid rgba(255,255,255,0.1); }
     body[data-theme="sunny"] .btn { background: #fff; border: 2px solid #fae3d9; color: #5c4f4f; box-shadow: 0 4px 6px rgba(236,165,134,0.15); }
+    body[data-theme="ink"] .btn { background: transparent; border: 1px solid #8b5a2b; color: #2c2c2c; box-shadow: none; border-radius: 2px; font-weight: normal;}
+    
     .btn:active, .btn.active { background: var(--btn-bg); transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.5); color: #fff; }
     body[data-theme="sunny"] .btn:active, body[data-theme="sunny"] .btn.active { box-shadow: 0 2px 3px rgba(236,165,134,0.3); }
+    body[data-theme="ink"] .btn:active, body[data-theme="ink"] .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: none;}
     
     #btn-left { grid-column: 1; grid-row: 1 / span 2; } #btn-right { grid-column: 4; grid-row: 1 / span 2; } #btn-rotate { grid-column: 2 / span 2; grid-row: 1; }
     #btn-down { grid-column: 2; grid-row: 2; font-size: 20px;} #btn-hard { grid-column: 3; grid-row: 2; font-size: 20px;}
     
     .overlay { position: absolute; inset: 0; background: var(--menu-bg); backdrop-filter: blur(4px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; transition: 0.3s; }
     .menu-wrapper { position: relative; width: 280px; height: 380px; background: var(--menu-wrap-bg); backdrop-filter: var(--menu-backdrop); border: var(--menu-wrap-border); border-radius: 16px; box-shadow: var(--menu-wrap-shadow); transition: 0.3s;}
+    body[data-theme="ink"] .menu-wrapper { border-radius: 2px; box-shadow: inset 0 0 0 4px #fdfaf2, inset 0 0 0 5px #c9b89f, 0 10px 30px rgba(0,0,0,0.1); }
     #overlay-pause .menu-wrapper { height: 440px; }
     #overlay-settings .menu-wrapper { height: 490px; } 
     .menu-header { position: absolute; top: 0; left: 0; width: 100%; height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .menu-header h1 { color: var(--title-color); margin: 0; font-size: 36px; text-shadow: var(--title-shadow); text-align: center; transition: 0.3s;}
+    body[data-theme="ink"] .menu-header h1 { font-size: 42px; letter-spacing: 4px; font-weight: normal;}
     .menu-high-score-text { color: #ccc; font-size: 18px; margin: 15px 0 0 0; font-weight: bold; }
     body[data-theme="sunny"] .menu-high-score-text { color: #7a6b6b; }
+    body[data-theme="ink"] .menu-high-score-text { color: #555; font-weight: normal;}
     .menu-high-score-text span { color: var(--accent); font-size: 22px; text-shadow: 0 0 8px rgba(233, 69, 96, 0.8); transition: 0.3s;}
-    body[data-theme="sunny"] .menu-high-score-text span { text-shadow: none; }
+    body[data-theme="sunny"] .menu-high-score-text span, body[data-theme="ink"] .menu-high-score-text span { text-shadow: none; }
     
     .menu-buttons { position: absolute; bottom: 0; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; padding-bottom: 25px; }
-    .overlay button { padding: 15px 20px; font-size: 18px; background: var(--btn-bg); color: white; border: var(--btn-border); border-radius: 8px; font-weight: bold; margin: 0; width: 180px; box-sizing: border-box; cursor: pointer; box-shadow: var(--btn-shadow); transition: transform 0.1s, filter 0.2s, background 0.3s; }
+    .overlay button { padding: 15px 20px; font-size: 18px; background: var(--btn-bg); color: white; border: var(--btn-border); border-radius: 8px; font-weight: bold; margin: 0; width: 180px; box-sizing: border-box; cursor: pointer; box-shadow: var(--btn-shadow); transition: transform 0.1s, filter 0.2s, background 0.3s, color 0.3s; }
+    body[data-theme="ink"] .overlay button { background: var(--accent); color: #fff; border: none; border-radius: 4px 12px 6px 14px; letter-spacing: 4px; box-shadow: 2px 2px 0px rgba(0,0,0,0.1);}
+    body[data-theme="ink"] .overlay button:hover { filter: none; opacity: 0.9; }
+    
     .overlay button:active { transform: translateY(2px); }
-    .overlay button:hover { filter: brightness(1.1); }
     .overlay button.secondary { background: var(--panel2); }
     body[data-theme="neon"] .overlay button.secondary { background: linear-gradient(135deg, #1a2a42, var(--panel2)); border-color: rgba(0, 240, 255, 0.2); }
     body[data-theme="sunny"] .overlay button.secondary { background: #fae3d9; color: #5c4f4f; border: 2px solid #fff; box-shadow: 0 4px 8px rgba(236,165,134,0.2);}
+    body[data-theme="ink"] .overlay button.secondary { background: #fdfaf2; color: #2c2c2c; border: 1px solid #8b5a2b; border-radius: 2px; box-shadow: none;}
+    body[data-theme="ink"] .overlay button.secondary:hover { background: #f5eedc; }
     
     .setting-item { width: 220px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 15px 20px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); transition: 0.3s;}
     body[data-theme="classic"] .setting-item { background: var(--panel2); box-shadow: 0 4px 6px rgba(0,0,0,0.4); border: none; }
     body[data-theme="sunny"] .setting-item { background: #fff; border: 1px solid #fae3d9; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    body[data-theme="ink"] .setting-item { background: transparent; border: 1px solid rgba(139,90,43,0.3); box-shadow: none; border-radius: 2px; }
     
     .setting-header { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: bold; color: #ddd; }
     body[data-theme="sunny"] .setting-header { color: #5c4f4f; }
+    body[data-theme="ink"] .setting-header { color: #2c2c2c; font-weight: normal;}
     
     .setting-item input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
     .setting-item input[type=range]:focus { outline: none; }
     .setting-item input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #0b0e17; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); }
     body[data-theme="classic"] .setting-item input[type=range]::-webkit-slider-runnable-track { background: var(--grid); border: none; }
     body[data-theme="sunny"] .setting-item input[type=range]::-webkit-slider-runnable-track { background: #eaddd7; border: none; }
+    body[data-theme="ink"] .setting-item input[type=range]::-webkit-slider-runnable-track { background: rgba(139,90,43,0.2); border: none; border-radius: 0; height: 4px;}
     
     .setting-item input[type=range]::-webkit-slider-thumb { height: 18px; width: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; -webkit-appearance: none; margin-top: -7px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
     body[data-theme="neon"] .setting-item input[type=range]::-webkit-slider-thumb { background: var(--neon); box-shadow: 0 0 10px var(--neon); }
     body[data-theme="sunny"] .setting-item input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 2px 5px rgba(236,165,134,0.4); }
+    body[data-theme="ink"] .setting-item input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: none; border: 2px solid #fdfaf2; border-radius: 2px; margin-top: -8px;}
     
     .toggle-row { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: bold; color: #ddd; }
     body[data-theme="sunny"] .toggle-row { color: #5c4f4f; }
+    body[data-theme="ink"] .toggle-row { color: #2c2c2c; font-weight: normal; }
     
     .toggle-row span.status, .theme-select { color: #fff; background: var(--accent); padding: 2px 10px; border-radius: 4px; cursor: pointer; user-select: none; box-shadow: 0 0 8px rgba(233, 69, 96, 0.6); transition: 0.3s; font-family: inherit;}
     body[data-theme="classic"] .toggle-row span.status, body[data-theme="classic"] .theme-select { background: rgba(0,0,0,0.3); color: var(--accent); box-shadow: none; border: 1px solid rgba(233,69,96,0.3); }
     body[data-theme="sunny"] .toggle-row span.status, body[data-theme="sunny"] .theme-select { background: var(--accent); color: #fff; box-shadow: none; border: none; }
+    body[data-theme="ink"] .toggle-row span.status, body[data-theme="ink"] .theme-select { background: var(--accent); color: #fff; box-shadow: none; border: none; border-radius: 2px;}
+    
     .toggle-row.off span.status { background: #333; color: #888; box-shadow: none; border-color: transparent;}
     body[data-theme="sunny"] .toggle-row.off span.status { background: #eaddd7; color: #a99a9a; }
+    body[data-theme="ink"] .toggle-row.off span.status { background: transparent; border: 1px solid #8b5a2b; color: #555; }
     
-    /* 下拉选择框特殊样式 */
     .theme-select { appearance: none; -webkit-appearance: none; text-align: center; text-align-last: center; font-size: 14px; font-weight: bold; outline: none; border: none; }
+    body[data-theme="ink"] .theme-select { font-weight: normal; font-size: 16px; letter-spacing: 2px;}
     .theme-select option { background: var(--panel); color: #fff; }
     body[data-theme="sunny"] .theme-select option { background: #fff; color: #5c4f4f; }
+    body[data-theme="ink"] .theme-select option { background: #fdfaf2; color: #2c2c2c; }
     
     .score-display { text-align: center; background: rgba(0, 0, 0, 0.4); padding: 20px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 0 15px rgba(0,0,0,0.5); width: 85%; margin: 0 auto; box-sizing: border-box; transition: 0.3s;}
     body[data-theme="classic"] .score-display { background: rgba(15, 52, 96, 0.6); border: 1px solid var(--panel2); box-shadow: inset 0 0 15px rgba(0,0,0,0.3); }
     body[data-theme="sunny"] .score-display { background: #fff; border: 2px solid #fae3d9; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    body[data-theme="ink"] .score-display { background: rgba(244, 238, 219, 0.9); border: 1px solid #8b5a2b; box-shadow: inset 0 0 20px rgba(139, 90, 43, 0.1); border-radius: 0;}
     
     .score-display p { margin: 0; font-size: 22px; font-weight: bold; color: #ccc;}
     body[data-theme="sunny"] .score-display p { color: #7a6b6b; }
+    body[data-theme="ink"] .score-display p { color: #555; font-weight: normal; }
     .score-display .final-score { color: var(--info-color); font-size: 32px; text-shadow: var(--info-shadow); transition: 0.3s;}
     
     @keyframes pulse { from { transform: scale(1); box-shadow: 0 0 5px #ffd700; } to { transform: scale(1.1); box-shadow: 0 0 20px #ffd700; } }
     #new-record-badge { display: none; background: linear-gradient(135deg, #ffd700, #ff8c00); color: #000; padding: 2px 8px; border-radius: 6px; font-size: 14px; margin-left: 10px; vertical-align: middle; animation: pulse 0.8s infinite alternate; border: 1px solid #fff; }
+    body[data-theme="ink"] #new-record-badge { background: var(--accent); color: #fff; border: none; animation: none; border-radius: 2px;}
     
     #pc-hints { display: none; width: 220px; background: var(--hint-bg); border: 1px solid var(--hint-border); border-radius: 12px; padding: 14px; box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,240,255,0.05); backdrop-filter: blur(8px); transition: 0.3s;}
     body[data-theme="classic"] #pc-hints { box-shadow: inset 0 0 10px rgba(0,0,0,0.35); backdrop-filter: blur(6px); }
     body[data-theme="sunny"] #pc-hints { box-shadow: 0 8px 20px rgba(236,165,134,0.15); backdrop-filter: blur(10px); }
+    body[data-theme="ink"] #pc-hints { box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-radius: 2px; }
     
     #pc-hints h3{ margin: 0 0 10px 0; font-size: 16px; color: var(--title-color); text-align: center; text-shadow: 0 0 5px rgba(0,240,255,0.5); }
     body[data-theme="classic"] #pc-hints h3 { color: #fff; text-shadow: none; }
     body[data-theme="sunny"] #pc-hints h3 { color: #d88a6d; text-shadow: none; }
+    body[data-theme="ink"] #pc-hints h3 { color: var(--accent); text-shadow: none; font-size: 18px; letter-spacing: 2px; font-weight: normal;}
     
     .hint-row{ display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); font-size: 14px; color: #ccc; }
     body[data-theme="sunny"] .hint-row { color: #7a6b6b; border-bottom: 1px dashed #fae3d9; }
+    body[data-theme="ink"] .hint-row { color: #555; border-bottom: 1px dashed rgba(139,90,43,0.2); }
     .hint-row:last-child{ border-bottom: none; }
     
     .keycap{ display: inline-flex; align-items: center; justify-content: center; min-width: 44px; padding: 4px 8px; border-radius: 6px; background: linear-gradient(180deg, #2a3550, #16213e); border: 1px solid #4a5b82; border-bottom: 3px solid #0f1626; box-shadow: 0 4px 6px rgba(0,0,0,0.4); font-weight: 800; letter-spacing: 0.5px; color: #fff; }
     body[data-theme="classic"] .keycap { background: rgba(22,33,62,0.9); border: 1px solid rgba(255,255,255,0.12); border-bottom: none; box-shadow: 0 3px 6px rgba(0,0,0,0.25); }
     body[data-theme="sunny"] .keycap { background: #fff; color: #5c4f4f; border: 1px solid #fae3d9; border-bottom: 3px solid #eaddd7; box-shadow: none; }
+    body[data-theme="ink"] .keycap { background: transparent; color: #2c2c2c; border: 1px solid #8b5a2b; border-radius: 2px; box-shadow: none; font-family: sans-serif; border-bottom: 1px solid #8b5a2b;}
     .keycap.space{ min-width: 78px; }
     
     @media (hover: hover) and (pointer: fine) and (min-width: 900px) {
@@ -158,6 +248,7 @@
   </style>
 </head>
 <body data-theme="classic">
+  <div class="ink-overlay"></div>
   <div id="game-area">
     <div id="pc-hints" aria-hidden="true">
       <h3>操作指南</h3>
@@ -168,7 +259,14 @@
       <div class="hint-row"><span class="keycap space">Space</span><span>瞬间坠落</span></div>
       <div class="hint-row"><span class="keycap">P</span><span>暂停/继续</span></div>
     </div>
-    <canvas id="board"></canvas>
+    
+    <!-- 性能优化核心：多图层渲染架构 -->
+    <div id="canvas-container">
+      <canvas id="bg-canvas"></canvas> <!-- 静态缓存层：网格与固定方块，零碎帧免重绘 -->
+      <canvas id="board"></canvas>     <!-- 动态主绘层：下落方块与虚影 -->
+      <canvas id="fx-canvas"></canvas> <!-- 顶层特效层：消除动画、粒子、涟漪 -->
+    </div>
+
     <div id="ui-panel">
       <canvas id="next-canvas"></canvas>
       <div class="info-box">最高分 <span id="ui-high-score">0</span></div>
@@ -180,7 +278,7 @@
     
     <div id="overlay-start" class="overlay">
       <div class="menu-wrapper">
-        <div class="menu-header"><h1>俄罗斯方块</h1><p class="menu-high-score-text">最高纪录: <span id="menu-high-score">0</span></p></div>
+        <div class="menu-header"><h1 id="title-text">俄罗斯方块</h1><p class="menu-high-score-text">最高纪录: <span id="menu-high-score">0</span></p></div>
         <div class="menu-buttons">
           <button id="start-normal-btn" class="secondary">普通模式</button>
           <button id="start-easy-btn" class="secondary">休闲模式</button>
@@ -203,7 +301,6 @@
           <div class="setting-item">
             <div class="toggle-row" id="toggle-grid-row"><span>显示网格</span><span class="status" id="grid-status">开</span></div>
           </div>
-          <!-- 主题选择下拉框 -->
           <div class="setting-item">
             <div class="toggle-row">
               <span>主题风格</span>
@@ -211,6 +308,7 @@
                 <option value="classic">经典</option>
                 <option value="neon">霓虹</option>
                 <option value="sunny">阳光</option>
+                <option value="ink">水墨</option>
               </select>
             </div>
           </div>
@@ -231,7 +329,7 @@
     </div>
     <div id="overlay-gameover" class="overlay" style="display: none;">
       <div class="menu-wrapper" style="height: 400px;">
-        <div class="menu-header" style="height: 100px;"><h1>局局结束</h1></div>
+        <div class="menu-header" style="height: 100px;"><h1>对局结束</h1></div>
         <div class="score-display" style="position: absolute; top: 120px;">
           <p class="final-score">得分: <span id="final-score-val">0</span><span id="new-record-badge">新纪录!</span></p>
         </div>
@@ -252,23 +350,36 @@
 
   <script>
     const $ = id => document.getElementById(id);
-    const canvas = $('board'), ctx = canvas.getContext('2d'), nextCanvas = $('next-canvas'), nextCtx = nextCanvas.getContext('2d');
+    
+    // 获取多图层Canvas
+    const canvasContainer = $('canvas-container');
+    const bgCanvas = $('bg-canvas'), bgCtx = bgCanvas.getContext('2d', { alpha: true });
+    const canvas = $('board'), ctx = canvas.getContext('2d', { alpha: true });
+    const fxCanvas = $('fx-canvas'), fxCtx = fxCanvas.getContext('2d', { alpha: true });
+    
+    const nextCanvas = $('next-canvas'), nextCtx = nextCanvas.getContext('2d');
+    
     const COLS = 10, ROWS = 20;
     let BLOCK_SIZE = 20;
 
-    // 三种主题的色板（阳光主题改为莫兰迪低饱和度软色调）
     const COLORS_CLASSIC = [null, '#00E5FF', '#2962FF', '#FF6D00', '#FFD600', '#00E676', '#D500F9', '#FF1744'];
     const COLORS_NEON = [null, '#00F0FF', '#0033FF', '#FF8C00', '#FFE600', '#00FF66', '#E000FF', '#FF003C'];
     const COLORS_SUNNY = [null, '#87C8D1', '#9DA1C4', '#ECA586', '#EFE192', '#A1C18F', '#C296B6', '#E68A8C']; 
+    const COLORS_INK = [null, '#333333', '#4b5cc4', '#c02c38', '#e3c068', '#8b5f4d', '#cb8e4e', '#6b7b6e'];
     const SHAPES = [ [], [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], [[2,0,0],[2,2,2],[0,0,0]], [[0,0,3],[3,3,3],[0,0,0]], [[4,4],[4,4]], [[0,5,5],[5,5,0],[0,0,0]], [[0,6,0],[6,6,6],[0,0,0]], [[7,7,0],[0,7,7],[0,0,0]] ];
 
     let board = [], piece = null, nextPiece = null, bag = [];
     let score = 0, lines = 0, level = 1, currentHighScore = 0;
     let dropCounter = 0, dropInterval = 1000, lastTime = 0, reqAnimId = null;
     let gameOver = false, isPaused = false, gameMode = 'normal', previousMenu = 'start';
+    
+    // 多图层性能优化：标记底层Canvas是否需要重绘
+    let bgDirty = true; 
     let isClearing = false, clearAnim = { rows: [], start: 0, duration: 240, phase: 0 };
     
-    // 主题与设置状态
+    // 粒子与涟漪特效状态
+    let particles = [], ripples = [];
+    
     let currentTheme = localStorage.getItem('tetrisTheme') || 'classic';
     let bgmVolume = parseFloat(localStorage.getItem('tetrisBgmVol')) ?? 1.0;
     let sfxVolume = parseFloat(localStorage.getItem('tetrisSfxVol')) ?? 1.0;
@@ -300,19 +411,42 @@
       $('bgm-slider').value = Math.round(bgmVolume * 100); $('bgm-val').innerText = Math.round(bgmVolume * 100) + '%'; 
       $('sfx-slider').value = Math.round(sfxVolume * 100); $('sfx-val').innerText = Math.round(sfxVolume * 100) + '%'; 
       $('toggle-grid-row').className = gridEnabled ? 'toggle-row' : 'toggle-row off'; $('grid-status').innerText = gridEnabled ? '开' : '关'; 
+      
+      if(currentTheme === 'ink') {
+        if(!IS_PC) { $('btn-left').innerText = '左'; $('btn-right').innerText = '右'; $('btn-rotate').innerText = '旋'; $('btn-down').innerText = '降'; $('btn-hard').innerText = '坠'; }
+        $('pause-btn').innerText = '暂停';
+      } else {
+        if(!IS_PC) { $('btn-left').innerText = '◀'; $('btn-right').innerText = '▶'; $('btn-rotate').innerText = '↻ 旋转'; $('btn-down').innerText = '▼ 下落'; $('btn-hard').innerText = '⏬ 坠落'; }
+        $('pause-btn').innerText = '⏸ 暂停';
+      }
+      bgDirty = true;
     }
 
     function resize() {
       const g = $('game-area');
       BLOCK_SIZE = Math.max(12, Math.floor(Math.min((g.clientWidth - (IS_PC ? 384 : 110)) / COLS, (g.clientHeight - (IS_PC ? 44 : 20)) / ROWS)));
       const dpr = window.devicePixelRatio || 1;
-      canvas.style.width = `${BLOCK_SIZE * COLS}px`; canvas.style.height = `${BLOCK_SIZE * ROWS}px`;
-      canvas.width = BLOCK_SIZE * COLS * dpr; canvas.height = BLOCK_SIZE * ROWS * dpr;
-      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.scale(dpr, dpr);
+      
+      const cw = BLOCK_SIZE * COLS;
+      const ch = BLOCK_SIZE * ROWS;
+      
+      canvasContainer.style.width = `${cw}px`; 
+      canvasContainer.style.height = `${ch}px`;
+      
+      [bgCanvas, canvas, fxCanvas].forEach(c => {
+          c.width = cw * dpr; 
+          c.height = ch * dpr;
+          const context = c.getContext('2d');
+          context.setTransform(1, 0, 0, 1, 0, 0); 
+          context.scale(dpr, dpr);
+      });
+      
       const ns = IS_PC ? 110 : 80;
       nextCanvas.style.width = `${ns}px`; nextCanvas.style.height = `${ns}px`;
       nextCanvas.width = ns * dpr; nextCanvas.height = ns * dpr;
       nextCtx.setTransform(1, 0, 0, 1, 0, 0); nextCtx.scale(dpr, dpr);
+      
+      bgDirty = true;
       draw(); drawNext();
     }
     window.addEventListener('resize', resize);
@@ -335,31 +469,70 @@
     function triggerGameOver() { gameOver = true; getActiveAudio().pause(); $('final-score-val').innerText = score; let sh = parseInt(localStorage.getItem('tetrisHighScore') || '0', 10); $('new-record-badge').style.display = (score > sh && score > 0) ? (localStorage.setItem('tetrisHighScore', score), 'inline-block') : 'none'; $('overlay-gameover').style.display = 'flex'; }
 
     function lockPiece() {
-      merge(); const rows = findFullRows();
-      if (rows.length) { isClearing = true; clearAnim = { rows, start: performance.now(), duration: 240, phase: 0 }; SFX.clear(); }
-      else { SFX.lock(); piece = nextPiece; nextPiece = randomPiece(); drawNext(); if (checkCollision(piece.matrix, piece.pos)) triggerGameOver(); }
+      merge(); 
+      const rows = findFullRows();
+      bgDirty = true; // 触发底层静态渲染缓存更新
+      
+      // 水墨涟漪特效
+      if (currentTheme === 'ink' && piece) {
+          let minX = 100, maxX = -100, maxY = -100;
+          piece.matrix.forEach((row, y) => row.forEach((v, x) => {
+              if (v) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); }
+          }));
+          const cx = (piece.pos.x + minX + (maxX - minX + 1) / 2) * BLOCK_SIZE;
+          const cy = (piece.pos.y + maxY + 1) * BLOCK_SIZE;
+          ripples.push({ x: cx, y: cy, radius: 2, alpha: 0.7, speed: 2, fade: 0.04 });
+      }
+
+      if (rows.length) { 
+        isClearing = true; 
+        clearAnim = { rows, start: performance.now(), duration: currentTheme === 'ink' ? 500 : 240, phase: 0 }; 
+        SFX.clear(); 
+        
+        // 水墨行消除粒子飞溅特效
+        if (currentTheme === 'ink') {
+            rows.forEach(y => {
+                for (let x = 0; x < COLS; x++) {
+                    if (board[y][x]) {
+                        for(let i=0; i<4; i++) {
+                            particles.push({
+                                x: x * BLOCK_SIZE + Math.random() * BLOCK_SIZE,
+                                y: y * BLOCK_SIZE + Math.random() * BLOCK_SIZE,
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: (Math.random() - 0.5) * 4,
+                                life: 500 + Math.random() * 400,
+                                maxLife: 900,
+                                size: 1 + Math.random() * 3,
+                                color: getColors()[board[y][x]]
+                            });
+                        }
+                    }
+                }
+            });
+        }
+      } else { 
+        SFX.lock(); piece = nextPiece; nextPiece = randomPiece(); drawNext(); 
+        if (checkCollision(piece.matrix, piece.pos)) triggerGameOver(); 
+      }
     }
 
     function playerDrop(isManual = false) { if (isPaused || gameOver || isClearing || !piece) return; piece.pos.y++; if (checkCollision(piece.matrix, piece.pos)) { piece.pos.y--; lockPiece(); } else if (isManual) SFX.move(); dropCounter = 0; }
-    function playerHardDrop() { if (isPaused || gameOver || isClearing || !piece) return; while (!checkCollision(piece.matrix, { x: piece.pos.x, y: piece.pos.y + 1 })) { piece.pos.y++; score += 2; } canvas.classList.remove('shake'); void canvas.offsetWidth; canvas.classList.add('shake'); $('score').innerText = score; if (score > currentHighScore) $('ui-high-score').innerText = currentHighScore = score; lockPiece(); dropCounter = 0; }
+    function playerHardDrop() { if (isPaused || gameOver || isClearing || !piece) return; while (!checkCollision(piece.matrix, { x: piece.pos.x, y: piece.pos.y + 1 })) { piece.pos.y++; score += 2; } canvasContainer.classList.remove('shake'); void canvasContainer.offsetWidth; canvasContainer.classList.add('shake'); $('score').innerText = score; if (score > currentHighScore) $('ui-high-score').innerText = currentHighScore = score; lockPiece(); dropCounter = 0; }
     function playerMove(dir) { if (isPaused || gameOver || isClearing || !piece) return; piece.pos.x += dir; checkCollision(piece.matrix, piece.pos) ? piece.pos.x -= dir : SFX.move(); }
     function playerRotate() { if (isPaused || gameOver || isClearing || !piece) return; const r = rotateMatrix(piece.matrix), pos = piece.pos.x; let off = 1; while (checkCollision(r, piece.pos)) { piece.pos.x += off; off = -(off + (off > 0 ? 1 : -1)); if (off > piece.matrix[0].length) { piece.pos.x = pos; return; } } piece.matrix = r; SFX.rotate(); }
 
-    const getColors = () => currentTheme === 'neon' ? COLORS_NEON : (currentTheme === 'sunny' ? COLORS_SUNNY : COLORS_CLASSIC);
+    const getColors = () => currentTheme === 'neon' ? COLORS_NEON : (currentTheme === 'sunny' ? COLORS_SUNNY : (currentTheme === 'ink' ? COLORS_INK : COLORS_CLASSIC));
 
-    // 绘制圆角矩形的辅助函数
-    const roundedRect = (ctx, x, y, width, height, radius) => {
-      ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + width - radius, y);
-      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-      ctx.lineTo(x + width, y + height - radius);
-      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-      ctx.lineTo(x + radius, y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
+    const roundedRect = (c, x, y, width, height, radius) => {
+      c.beginPath();
+      c.moveTo(x + radius, y); c.lineTo(x + width - radius, y);
+      c.quadraticCurveTo(x + width, y, x + width, y + radius);
+      c.lineTo(x + width, y + height - radius);
+      c.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      c.lineTo(x + radius, y + height);
+      c.quadraticCurveTo(x, y + height, x, y + height - radius);
+      c.lineTo(x, y + radius);
+      c.quadraticCurveTo(x, y, x + radius, y); c.closePath();
     };
 
     function draw3DBlock(c, x, y, s, color, alpha = 1, scale = 1) {
@@ -368,43 +541,53 @@
       c.globalAlpha = alpha; 
       
       if (currentTheme === 'neon') {
-        c.strokeStyle = color;
-        c.lineWidth = Math.max(2, a * 0.1);
-        c.shadowColor = color;
-        c.shadowBlur = 10;
+        c.strokeStyle = color; c.lineWidth = Math.max(2, a * 0.1); c.shadowColor = color; c.shadowBlur = 10;
         c.strokeRect(px + 1, py + 1, a - 2, a - 2);
-        c.shadowBlur = 0;
-        c.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-        c.lineWidth = 1;
+        c.shadowBlur = 0; c.strokeStyle = 'rgba(255, 255, 255, 0.7)'; c.lineWidth = 1;
         c.strokeRect(px + 2, py + 2, a - 4, a - 4);
       } else if (currentTheme === 'sunny') {
-        // 阳光主题：果冻/软糖圆润质感
         const r = Math.max(2, a * 0.25);
+        c.fillStyle = 'rgba(210, 190, 180, 0.4)'; roundedRect(c, px, py + 2, a, a, r); c.fill();
+        c.fillStyle = color; roundedRect(c, px, py, a, a, r); c.fill();
+        c.fillStyle = 'rgba(255, 255, 255, 0.4)'; roundedRect(c, px + 2, py + 2, a - 4, a * 0.35, r - 1); c.fill();
+        c.strokeStyle = 'rgba(255, 255, 255, 0.6)'; c.lineWidth = 1; roundedRect(c, px, py, a, a, r); c.stroke();
+      } else if (currentTheme === 'ink') {
+        // 性能优化：位运算代替Math.floor提升计算速度
+        let seed = (px | 0) * 17 + (py | 0) * 101; 
+        const prand = () => { let v = Math.sin(seed++) * 10000; return v - (v | 0); };
+        const randOffset = (amp = 1.5) => (prand() - 0.5) * amp;
         
-        // 底部微阴影
-        c.fillStyle = 'rgba(210, 190, 180, 0.4)';
-        roundedRect(c, px, py + 2, a, a, r);
-        c.fill();
-        
-        // 基础主色
+        const cx = px + 1, cy = py + 1, size = a - 2;
         c.fillStyle = color;
-        roundedRect(c, px, py, a, a, r);
+        c.globalAlpha = alpha * 0.9;
+        
+        c.shadowColor = color;
+        c.shadowBlur = 6;
+        
+        c.beginPath();
+        c.moveTo(cx + randOffset(), cy + randOffset());
+        c.lineTo(cx + size/2 + randOffset(), cy - 0.5 + randOffset());
+        c.lineTo(cx + size + randOffset(), cy + randOffset());
+        c.lineTo(cx + size + 0.5 + randOffset(), cy + size/2 + randOffset());
+        c.lineTo(cx + size + randOffset(), cy + size + randOffset());
+        c.lineTo(cx + size/2 + randOffset(), cy + size + 0.5 + randOffset());
+        c.lineTo(cx + randOffset(), cy + size + randOffset());
+        c.lineTo(cx - 0.5 + randOffset(), cy + size/2 + randOffset());
+        c.closePath();
         c.fill();
         
-        // 顶部反光/果冻感
-        c.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        roundedRect(c, px + 2, py + 2, a - 4, a * 0.35, r - 1);
-        c.fill();
-        
-        // 微弱柔和白边勾勒
-        c.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        c.shadowBlur = 0;
+        c.strokeStyle = 'rgba(0, 0, 0, 0.3)';
         c.lineWidth = 1;
-        roundedRect(c, px, py, a, a, r);
+        c.stroke();
+        
+        c.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        c.beginPath();
+        c.moveTo(cx + size*0.2 + randOffset(2), cy + size*0.3 + randOffset(2));
+        c.lineTo(cx + size*0.8 + randOffset(2), cy + size*0.5 + randOffset(2));
         c.stroke();
       } else {
-        // 经典主题：硬朗3D切面
-        c.fillStyle = color; 
-        c.fillRect(px, py, a, a);
+        c.fillStyle = color; c.fillRect(px, py, a, a);
         const poly = (f, pts) => { c.fillStyle = f; c.beginPath(); c.moveTo(...pts[0]); pts.slice(1).forEach(pt => c.lineTo(...pt)); c.fill(); };
         poly('rgba(255,255,255,0.4)', [[px,py], [px+a,py], [px+a-e,py+e], [px+e,py+e]]);
         poly('rgba(255,255,255,0.2)', [[px,py], [px+e,py+e], [px+e,py+a-e], [px,py+a]]);
@@ -418,105 +601,180 @@
     
     const drawMatrix = (m, off, c = ctx, s = BLOCK_SIZE) => m.forEach((r, y) => r.forEach((v, x) => v && draw3DBlock(c, (x + off.x) * s, (y + off.y) * s, s, getColors()[v])));
 
-    function drawGrid() {
+    function drawGrid(c = ctx) {
       if (!gridEnabled) return;
+      c.beginPath();
       if (currentTheme === 'neon') {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        for (let x = 1; x < COLS; x++) for (let y = 1; y < ROWS; y++) ctx.fillRect(x * BLOCK_SIZE - 1, y * BLOCK_SIZE - 1, 2, 2);
-      } else if (currentTheme === 'sunny') {
-        ctx.strokeStyle = '#fae3d9'; ctx.lineWidth = 1; ctx.beginPath();
-        for (let i = 0; i <= COLS; i++) { ctx.moveTo(i * BLOCK_SIZE, 0); ctx.lineTo(i * BLOCK_SIZE, ROWS * BLOCK_SIZE); }
-        for (let i = 0; i <= ROWS; i++) { ctx.moveTo(0, i * BLOCK_SIZE); ctx.lineTo(COLS * BLOCK_SIZE, i * BLOCK_SIZE); }
-        ctx.stroke();
+        c.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        for (let x = 1; x < COLS; x++) for (let y = 1; y < ROWS; y++) c.fillRect(x * BLOCK_SIZE - 1, y * BLOCK_SIZE - 1, 2, 2);
       } else {
-        ctx.strokeStyle = '#2a3b5c'; ctx.lineWidth = 1; ctx.beginPath();
-        for (let i = 0; i <= COLS; i++) { ctx.moveTo(i * BLOCK_SIZE, 0); ctx.lineTo(i * BLOCK_SIZE, ROWS * BLOCK_SIZE); }
-        for (let i = 0; i <= ROWS; i++) { ctx.moveTo(0, i * BLOCK_SIZE); ctx.lineTo(COLS * BLOCK_SIZE, i * BLOCK_SIZE); }
-        ctx.stroke();
+        if (currentTheme === 'ink') { c.strokeStyle = 'rgba(139, 90, 43, 0.3)'; }
+        else if (currentTheme === 'sunny') { c.strokeStyle = '#fae3d9'; }
+        else { c.strokeStyle = '#2a3b5c'; }
+        c.lineWidth = 1;
+        for (let i = 0; i <= COLS; i++) { c.moveTo(i * BLOCK_SIZE, 0); c.lineTo(i * BLOCK_SIZE, ROWS * BLOCK_SIZE); }
+        for (let i = 0; i <= ROWS; i++) { c.moveTo(0, i * BLOCK_SIZE); c.lineTo(COLS * BLOCK_SIZE, i * BLOCK_SIZE); }
+        c.stroke();
       }
     }
 
     const drawNext = () => { const s = IS_PC ? 110 : 80; nextCtx.clearRect(0, 0, s, s); if (nextPiece) drawMatrix(nextPiece.matrix, { x: (s - nextPiece.matrix[0].length * 20) / 40, y: (s - nextPiece.matrix.length * 20) / 40 }, nextCtx, 20); };
 
-    function drawBoardWithClearAnim() {
-      const cr = new Set(clearAnim.rows), t = clearAnim.phase, eo = 1 - Math.pow(1 - t, 3), f = Math.sin(Math.min(1, t * 2) * Math.PI) * 0.35;
-      const a = t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45, s = t < 0.55 ? 1 : (1 - (t - 0.55) / 0.45) * 0.55 + 0.45;
-      
-      for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-          const v = board[y][x];
-          if (!v) continue;
-          if (cr.has(y)) {
-            // 绘制缩放时的方块
-            draw3DBlock(ctx, x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, getColors()[v], Math.max(0, a), s);
-            // 绘制消除高亮闪烁白块，适配圆角软糖风格
-            ctx.save();
-            ctx.globalAlpha = Math.max(0, a) * 0.55 + f;
-            ctx.fillStyle = '#fff';
-            if (currentTheme === 'sunny') {
-              roundedRect(ctx, x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4, BLOCK_SIZE * 0.2);
-              ctx.fill();
-            } else {
-              ctx.fillRect(x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4);
-            }
-            ctx.restore();
-          } else {
-            draw3DBlock(ctx, x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, getColors()[v]);
-          }
-        }
-      }
-      
-      if (currentTheme === 'neon') {
-        ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = '#00F0FF'; ctx.fillStyle = `rgba(255, 255, 255, ${1 - eo})`; 
-        clearAnim.rows.forEach(y => { const h = BLOCK_SIZE * (0.8 - eo * 0.8); ctx.fillRect(0, y * BLOCK_SIZE + BLOCK_SIZE / 2 - h / 2, COLS * BLOCK_SIZE, h); }); ctx.restore();
-      } else {
-        ctx.save(); ctx.globalAlpha = 0.25 * (1 - eo); ctx.fillStyle = currentTheme === 'sunny' ? 'rgba(255,182,185,0.7)' : 'rgba(255,255,255,0.7)';
-        clearAnim.rows.forEach(y => ctx.fillRect(0, y * BLOCK_SIZE + BLOCK_SIZE * 0.35, COLS * BLOCK_SIZE, BLOCK_SIZE * 0.25)); ctx.restore();
-      }
-    }
-
-    function drawGhost() {
+    function drawGhost(c) {
       if (gameMode !== 'easy' || !piece || isClearing || gameOver || isPaused) return;
       const g = { ...piece.pos }; while (!checkCollision(piece.matrix, { x: g.x, y: g.y + 1 })) g.y++;
-      ctx.save(); ctx.lineWidth = 2; 
+      c.save(); c.lineWidth = 2; 
       if (currentTheme === 'neon') {
-        ctx.setLineDash([4, 4]); const pulse = 0.3 + Math.sin(Date.now() / 150) * 0.2;
-        ctx.strokeStyle = `rgba(0, 240, 255, ${pulse})`; ctx.fillStyle = `rgba(0, 240, 255, ${pulse * 0.1})`;
+        c.setLineDash([4, 4]); const pulse = 0.3 + Math.sin(Date.now() / 150) * 0.2;
+        c.strokeStyle = `rgba(0, 240, 255, ${pulse})`; c.fillStyle = `rgba(0, 240, 255, ${pulse * 0.1})`;
       } else if (currentTheme === 'sunny') {
-        ctx.setLineDash([]); ctx.strokeStyle = 'rgba(236, 165, 134, 0.4)'; ctx.fillStyle = 'rgba(236, 165, 134, 0.1)';
+        c.setLineDash([]); c.strokeStyle = 'rgba(236, 165, 134, 0.4)'; c.fillStyle = 'rgba(236, 165, 134, 0.1)';
+      } else if (currentTheme === 'ink') {
+        c.setLineDash([4, 4]); c.strokeStyle = 'rgba(139, 90, 43, 0.4)'; c.fillStyle = 'rgba(50, 50, 50, 0.05)';
       } else {
-        ctx.setLineDash([]); ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        c.setLineDash([]); c.strokeStyle = 'rgba(255, 255, 255, 0.2)'; c.fillStyle = 'rgba(255, 255, 255, 0.03)';
       }
       piece.matrix.forEach((r, y) => r.forEach((v, x) => { 
         if (v) { 
           const px = (x + g.x) * BLOCK_SIZE + 1, py = (y + g.y) * BLOCK_SIZE + 1, s = BLOCK_SIZE - 2; 
-          if (currentTheme === 'sunny') {
-            roundedRect(ctx, px, py, s, s, Math.max(2, s * 0.25));
-            ctx.fill(); ctx.stroke();
-          } else {
-            ctx.strokeRect(px, py, s, s); ctx.fillRect(px, py, s, s); 
-          }
+          if (currentTheme === 'sunny') { roundedRect(c, px, py, s, s, Math.max(2, s * 0.25)); c.fill(); c.stroke(); } 
+          else { c.strokeRect(px, py, s, s); c.fillRect(px, py, s, s); }
         } 
       })); 
-      ctx.restore();
+      c.restore();
     }
 
+    // 绘制底层（静态缓存层）
+    function drawBgLayer() {
+      if (!bgDirty) return;
+      bgCtx.clearRect(0, 0, COLS * BLOCK_SIZE, ROWS * BLOCK_SIZE);
+      drawGrid(bgCtx);
+      const clearingSet = isClearing ? new Set(clearAnim.rows) : new Set();
+      
+      board.forEach((row, y) => {
+        if (clearingSet.has(y)) return; // 消除中的行不在底层绘制，由特效层接管
+        row.forEach((v, x) => {
+          if (v) draw3DBlock(bgCtx, x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, getColors()[v]);
+        });
+      });
+      bgDirty = false;
+    }
+
+    // 绘制特效层
+    function drawFxLayer(eo, a, s, f) {
+      fxCtx.clearRect(0, 0, COLS * BLOCK_SIZE, ROWS * BLOCK_SIZE);
+      
+      if (isClearing) {
+        const cr = clearAnim.rows;
+        // 绘制正在消除缩放的方块
+        cr.forEach(y => {
+          for (let x = 0; x < COLS; x++) {
+            const v = board[y][x];
+            if (v) {
+              if (currentTheme === 'ink') {
+                let spread = eo * 12;
+                fxCtx.save();
+                draw3DBlock(fxCtx, x * BLOCK_SIZE - spread/2, y * BLOCK_SIZE - spread/2, BLOCK_SIZE + spread, getColors()[v], 1 - eo, 1);
+                fxCtx.restore();
+              } else {
+                draw3DBlock(fxCtx, x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, getColors()[v], Math.max(0, a), s);
+                fxCtx.save(); fxCtx.globalAlpha = Math.max(0, a) * 0.55 + f; fxCtx.fillStyle = '#fff';
+                if (currentTheme === 'sunny') { roundedRect(fxCtx, x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4, BLOCK_SIZE * 0.2); fxCtx.fill(); }
+                else { fxCtx.fillRect(x * BLOCK_SIZE + 2, y * BLOCK_SIZE + 2, BLOCK_SIZE - 4, BLOCK_SIZE - 4); }
+                fxCtx.restore();
+              }
+            }
+          }
+        });
+        
+        // 绘制消除横条叠层闪烁
+        fxCtx.save();
+        if (currentTheme === 'neon') {
+          fxCtx.shadowBlur = 15; fxCtx.shadowColor = '#00F0FF'; fxCtx.fillStyle = `rgba(255, 255, 255, ${1 - eo})`; 
+          cr.forEach(y => { const h = BLOCK_SIZE * (0.8 - eo * 0.8); fxCtx.fillRect(0, y * BLOCK_SIZE + BLOCK_SIZE / 2 - h / 2, COLS * BLOCK_SIZE, h); }); 
+        } else if (currentTheme !== 'ink') {
+          fxCtx.globalAlpha = 0.25 * (1 - eo); fxCtx.fillStyle = currentTheme === 'sunny' ? 'rgba(255,182,185,0.7)' : 'rgba(255,255,255,0.7)';
+          cr.forEach(y => fxCtx.fillRect(0, y * BLOCK_SIZE + BLOCK_SIZE * 0.35, COLS * BLOCK_SIZE, BLOCK_SIZE * 0.25)); 
+        }
+        fxCtx.restore();
+      }
+
+      // 绘制粒子和涟漪 (多图层优化：不用清空整个画布，由上方 clearRect 处理)
+      if (currentTheme === 'ink' || particles.length || ripples.length) {
+        fxCtx.save();
+        ripples.forEach(r => {
+          fxCtx.beginPath();
+          fxCtx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+          fxCtx.strokeStyle = `rgba(139, 90, 43, ${r.alpha})`; 
+          fxCtx.lineWidth = 1.5;
+          fxCtx.stroke();
+        });
+        particles.forEach(p => {
+          let alpha = Math.max(0, p.life / p.maxLife);
+          fxCtx.fillStyle = p.color;
+          fxCtx.globalAlpha = alpha;
+          fxCtx.beginPath();
+          fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          fxCtx.fill();
+        });
+        fxCtx.restore();
+      }
+    }
+
+    // 主渲染协调器
     function draw() {
-      ctx.clearRect(0, 0, COLS * BLOCK_SIZE, ROWS * BLOCK_SIZE); drawGrid();
-      isClearing ? drawBoardWithClearAnim() : drawMatrix(board, { x: 0, y: 0 });
-      if (piece && !isClearing) { drawGhost(); drawMatrix(piece.matrix, piece.pos); }
+      drawBgLayer();
+      
+      // 中层(动态主层)绘制当前下落块和虚影
+      ctx.clearRect(0, 0, COLS * BLOCK_SIZE, ROWS * BLOCK_SIZE);
+      if (piece && !isClearing) { 
+        drawGhost(ctx); 
+        drawMatrix(piece.matrix, piece.pos, ctx); 
+      }
+      
+      let eo = 0, a = 1, s = 1, f = 0;
+      if (isClearing) {
+        let t = clearAnim.phase;
+        eo = 1 - Math.pow(1 - t, 3);
+        f = Math.sin(Math.min(1, t * 2) * Math.PI) * 0.35;
+        a = t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45;
+        s = t < 0.55 ? 1 : (1 - (t - 0.55) / 0.45) * 0.55 + 0.45;
+      }
+      drawFxLayer(eo, a, s, f);
     }
 
     function update(time = 0) {
       if (gameOver || isPaused || $('overlay-start').style.display !== 'none' || $('overlay-settings').style.display !== 'none') return;
-      dropCounter += time - lastTime; lastTime = time;
+      
+      const deltaTime = time - lastTime;
+      dropCounter += deltaTime; 
+      lastTime = time;
+      
+      // 原址更新粒子系统，避免触发GC垃圾回收引起卡顿
+      if (currentTheme === 'ink' || particles.length || ripples.length) {
+          for(let i = particles.length - 1; i >= 0; i--) {
+              let p = particles[i];
+              p.x += p.vx; p.y += p.vy; p.life -= deltaTime;
+              if (p.life <= 0) particles.splice(i, 1);
+          }
+          for(let i = ripples.length - 1; i >= 0; i--) {
+              let r = ripples[i];
+              r.radius += r.speed; r.alpha -= r.fade;
+              if (r.alpha <= 0) ripples.splice(i, 1);
+          }
+      }
+
       if (isClearing) {
         if ((clearAnim.phase = Math.min(1, (time - clearAnim.start) / clearAnim.duration)) >= 1) {
           clearAnim.rows.slice().sort((a,b)=>a-b).forEach(y => board.unshift(board.splice(y, 1)[0].fill(0)));
-          updateScoreAndLevel(clearAnim.rows.length); isClearing = false; clearAnim.rows = []; piece = nextPiece; nextPiece = randomPiece(); drawNext();
-          if (checkCollision(piece.matrix, piece.pos)) { triggerGameOver(); draw(); return; } dropCounter = 0;
+          updateScoreAndLevel(clearAnim.rows.length); 
+          isClearing = false; clearAnim.rows = []; piece = nextPiece; nextPiece = randomPiece(); drawNext();
+          bgDirty = true; // 消除动画结束，强制更新底层静态缓存图层
+          if (checkCollision(piece.matrix, piece.pos)) { triggerGameOver(); draw(); return; } 
+          dropCounter = 0;
         }
       } else if (dropCounter > dropInterval) playerDrop();
+      
       draw(); reqAnimId = requestAnimationFrame(update);
     }
 
@@ -524,13 +782,14 @@
     function resetGame() {
       initAudio(); $('menu-high-score').innerText = $('ui-high-score').innerText = currentHighScore = parseInt(localStorage.getItem('tetrisHighScore') || '0', 10);
       startRandomBgm(); board = createMatrix(COLS, ROWS); score = lines = dropCounter = 0; level = 1; dropInterval = 1000; bag = [];
+      particles = []; ripples = []; bgDirty = true;
       $('score').innerText = score; $('lines').innerText = lines; $('level').innerText = level; piece = randomPiece(); nextPiece = randomPiece(); drawNext();
       gameOver = isPaused = isClearing = false; clearAnim = { rows: [], start: 0, duration: 240, phase: 0 }; lastTime = performance.now();
       ['overlay-start', 'overlay-settings', 'overlay-pause', 'overlay-gameover'].forEach(id => $(id).style.display = 'none');
-      if (reqAnimId) cancelAnimationFrame(reqAnimId); update();
+      if (reqAnimId) cancelAnimationFrame(reqAnimId); update(performance.now());
     }
 
-    function returnToMenu() { isPaused = true; if (reqAnimId) cancelAnimationFrame(reqAnimId); getActiveAudio().pause(); board = createMatrix(COLS, ROWS); piece = null; draw(); ['overlay-pause', 'overlay-gameover', 'overlay-settings'].forEach(id => $(id).style.display = 'none'); $('overlay-start').style.display = 'flex'; }
+    function returnToMenu() { isPaused = true; if (reqAnimId) cancelAnimationFrame(reqAnimId); getActiveAudio().pause(); board = createMatrix(COLS, ROWS); piece = null; bgDirty = true; draw(); ['overlay-pause', 'overlay-gameover', 'overlay-settings'].forEach(id => $(id).style.display = 'none'); $('overlay-start').style.display = 'flex'; }
     function togglePause() { if (gameOver || $('overlay-start').style.display !== 'none' || $('overlay-settings').style.display !== 'none') return; isPaused = true; getActiveAudio().pause(); $('overlay-pause').style.display = 'flex'; if (reqAnimId) cancelAnimationFrame(reqAnimId); }
 
     const bindBtn = (id, act, cont) => {
@@ -547,20 +806,18 @@
     bindClick('settings-btn', () => { previousMenu = 'start'; $('overlay-start').style.display = 'none'; $('overlay-settings').style.display = 'flex'; applySettings(); });
     bindClick('pause-settings-btn', () => { previousMenu = 'pause'; $('overlay-pause').style.display = 'none'; $('overlay-settings').style.display = 'flex'; applySettings(); });
     bindClick('menu-btn-settings', () => { $('overlay-settings').style.display = 'none'; previousMenu === 'pause' ? $('overlay-pause').style.display = 'flex' : ($('overlay-start').style.display = 'flex', draw()); });
-    bindClick('resume-btn', () => { initAudio(); isPaused = false; getActiveAudio().play().catch(()=>{}); $('overlay-pause').style.display = 'none'; lastTime = performance.now(); update(); });
+    bindClick('resume-btn', () => { initAudio(); isPaused = false; getActiveAudio().play().catch(()=>{}); $('overlay-pause').style.display = 'none'; lastTime = performance.now(); update(performance.now()); });
     bindClick('restart-btn', resetGame); bindClick('menu-btn-pause', returnToMenu); bindClick('retry-btn', resetGame); bindClick('menu-btn-gameover', returnToMenu); bindClick('pause-btn', togglePause);
 
     $('bgm-slider').oninput = e => { bgmVolume = e.target.value / 100; audioPlayers.forEach(p => p.volume = bgmVolume * bgmVolume); $('bgm-val').innerText = `${e.target.value}%`; localStorage.setItem('tetrisBgmVol', bgmVolume); };
     $('sfx-slider').oninput = e => { sfxVolume = e.target.value / 100; $('sfx-val').innerText = `${e.target.value}%`; localStorage.setItem('tetrisSfxVol', sfxVolume); if (Date.now() - ($('sfx-slider').lastPlay || 0) > 100) { initAudio(); playPop(); $('sfx-slider').lastPlay = Date.now(); } };
     
-    $('toggle-grid-row').onclick = () => { gridEnabled = !gridEnabled; localStorage.setItem('tetrisGrid', gridEnabled); applySettings(); draw(); };
+    $('toggle-grid-row').onclick = () => { gridEnabled = !gridEnabled; localStorage.setItem('tetrisGrid', gridEnabled); applySettings(); };
     
-    // 主题切换从点击切换改为下拉框选择
     $('theme-select').onchange = (e) => { 
       currentTheme = e.target.value; 
       localStorage.setItem('tetrisTheme', currentTheme); 
-      applySettings(); 
-      draw(); drawNext(); 
+      applySettings(); drawNext(); 
     };
 
     document.addEventListener('keydown', e => {
