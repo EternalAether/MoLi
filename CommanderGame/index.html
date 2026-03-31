@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>六角战纪：指挥官</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- 引入 Phaser 3 和 Howler.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+</head>
+<body>
+    <!-- 游戏引擎挂载容器（底层） -->
+    <div id="game-container"></div>
+
+    <!-- UI 渲染层（顶层） -->
+    <div id="ui-layer">
+        <!-- 页面流转挂��点，由 uiManager 动态控制显示/隐藏 -->
+        <div id="loading-screen" class="screen active">
+            <h1 class="glitch-text" data-text="六角战纪">六角战纪</h1>
+            <p>指挥官系统加载中...</p>
+            <div class="progress-bar-container">
+                <div id="loading-progress" class="progress-bar"></div>
+            </div>
+        </div>
+
+        <div id="main-menu" class="screen hidden">
+            <!-- 主菜单内容会在 uiManager 中动态生成 -->
+        </div>
+
+        <div id="prep-room" class="screen hidden">
+            <!-- 战备页面 -->
+        </div>
+
+        <div id="selection-lobby" class="screen hidden">
+            <!-- 选人页面 -->
+        </div>
+
+        <div id="battle-ui" class="screen hidden">
+            <!-- 战斗HUD -->
+        </div>
+
+        <!-- 全局设置模态框 -->
+        <div id="settings-modal" class="modal hidden"></div>
+    </div>
+
+    <!-- 游戏入口脚本，必须使用 type="module" 支持 ES6 import -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+:root {
+    --primary-color: #00ffcc;
+    --danger-color: #ff3366;
+    --bg-dark: #0a0a12;
+    --panel-bg: rgba(16, 20, 30, 0.85);
+    --text-main: #e0e0e0;
+    --border-glow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+#game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none; /* 让事件穿透到下层画布 */
+}
+
+/* 需要交互的 UI 恢复指针事件 */
+.screen, .modal {
+    pointer-events: auto; 
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease;
+}
+
+.hidden {
+    opacity: 0;
+    pointer-events: none !important;
+    visibility: hidden;
+}
+
+.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 通用按钮样式 */
+.btn {
+    background: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    padding: 12px 30px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+    box-shadow: var(--border-glow);
+    margin: 10px;
+}
+
+.btn:hover {
+    background: var(--primary-color);
+    color: var(--bg-dark);
+    box-shadow: 0 0 20px var(--primary-color);
+}
+
+/* Loading 条 */
+.progress-bar-container {
+    width: 300px;
+    height: 4px;
+    background: #333;
+    margin-top: 20px;
+}
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: var(--primary-color);
+    box-shadow: var(--border-glow);
+    transition: width 0.1s;
+}
+
+/* 模态框 */
+.modal-content {
+    background: var(--panel-bg);
+    border: 1px solid var(--primary-color);
+    padding: 30px;
+    min-width: 400px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+}
